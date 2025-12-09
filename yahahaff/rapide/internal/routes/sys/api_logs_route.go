@@ -6,12 +6,7 @@ import (
 )
 
 func OperationLogRouter(Router *gin.RouterGroup) {
-
-	{
-		// api-logs 路由
-		OperationLogGroup := Router.Group("/sys/api-logs")
-		olc := new(sys.OperationLogController)
-		OperationLogGroup.GET("getOperationLog", olc.GetOperationLog)
-
-	}
+	// api-logs 路由
+	olc := new(sys.OperationLogController)
+	Router.GET("/api-logs", olc.GetOperationLog)
 }
