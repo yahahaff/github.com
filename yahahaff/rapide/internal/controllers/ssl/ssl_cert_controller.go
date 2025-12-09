@@ -35,7 +35,11 @@ func (ctrl *SSLCertController) GetSSLCertList(c *gin.Context) {
 		page = 1
 	}
 
-	data, total, err := service.Entrance.SSLService.SSLCertService.GetSSLCertList(page, pageSize)
+	// 获取查询参数
+	domain := request.Domain
+	applyStatus := request.ApplyStatus
+
+	data, total, err := service.Entrance.SSLService.SSLCertService.GetSSLCertList(page, pageSize, domain, applyStatus)
 	if err != nil {
 		response.Abort500(c, "获取SSL证书列表失败")
 		return

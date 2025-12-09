@@ -23,7 +23,7 @@ import (
 type SSLCertService struct{}
 
 // GetSSLCertList 获取SSL证书列表
-func (ss *SSLCertService) GetSSLCertList(page int, size int) (data interface{}, total int64, err error) {
+func (ss *SSLCertService) GetSSLCertList(page int, size int, domain, applyStatus string) (data interface{}, total int64, err error) {
 	// 参数验证和默认值处理
 	if page < 1 {
 		page = 1
@@ -37,6 +37,14 @@ func (ss *SSLCertService) GetSSLCertList(page int, size int) (data interface{}, 
 
 	// 构建查询
 	db := database.DB.Model(&ssl.SSLCert{})
+
+	// 添加查询条件
+	if domain != "" {
+		db = db.Where("domain LIKE ?", "%"+domain+"%")
+	}
+	if applyStatus != "" {
+		db = db.Where("apply_status = ?", applyStatus)
+	}
 
 	// 获取总记录数
 	if err := db.Count(&total).Error; err != nil {
