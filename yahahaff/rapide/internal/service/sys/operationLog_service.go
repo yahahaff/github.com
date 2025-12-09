@@ -10,7 +10,7 @@ import (
 type OperationLogService struct{}
 
 // GetOperationLog 分页获取操作记录
-func (*OperationLogService) GetOperationLog(page int, size int, sort, order string, clientIP, method, path string, status int) (data interface{}, pager paginator.Paging, err error) {
+func (*OperationLogService) GetOperationLog(page int, size int, sort, order string, clientIP, method, path string, status int, startTime, endTime string) (data interface{}, pager paginator.Paging, err error) {
 	// 参数验证和默认值处理
 	if page < 1 {
 		page = 1
@@ -31,7 +31,7 @@ func (*OperationLogService) GetOperationLog(page int, size int, sort, order stri
 			"created_at": true,
 		}
 		if !allowedSorts[sort] {
-			sort = "id" // 默认按ID排序
+			sort = "created_at" // 默认按创建时间排序
 		}
 		
 		// 排序方向验证
@@ -39,8 +39,8 @@ func (*OperationLogService) GetOperationLog(page int, size int, sort, order stri
 			order = "desc" // 默认降序
 		}
 	} else {
-		sort = "id"
-		order = "desc"
+		sort = "created_at" // 默认按创建时间排序
+		order = "desc"      // 默认降序
 	}
 
 	// 构建查询
@@ -58,6 +58,12 @@ func (*OperationLogService) GetOperationLog(page int, size int, sort, order stri
 	}
 	if status > 0 {
 		db = db.Where("status = ?", status)
+	}
+	if startTime != "" {
+		db = db.Where("created_at >= ?", startTime)
+	}
+	if endTime != "" {
+		db = db.Where("created_at <= ?", endTime)
 	}
 
 	// 添加排序
