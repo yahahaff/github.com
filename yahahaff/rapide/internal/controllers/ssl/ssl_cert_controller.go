@@ -1,12 +1,12 @@
-// Package sys
-package sys
+// Package ssl
+package ssl
 
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/yahahaff/rapide/internal/controllers"
-	requestsSys "github.com/yahahaff/rapide/internal/requests/sys"
+	sslModel "github.com/yahahaff/rapide/internal/models/ssl"
+	requestsSSL "github.com/yahahaff/rapide/internal/requests/ssl"
 	"github.com/yahahaff/rapide/internal/requests/validators"
-	sysModel "github.com/yahahaff/rapide/internal/models/sys"
 	"github.com/yahahaff/rapide/internal/service"
 	"github.com/yahahaff/rapide/pkg/response"
 )
@@ -18,7 +18,7 @@ type SSLCertController struct {
 
 // GetSSLCertList 获取SSL证书列表
 func (ctrl *SSLCertController) GetSSLCertList(c *gin.Context) {
-	request := requestsSys.PaginationRequest{}
+	request := requestsSSL.PaginationRequest{}
 	if ok := validators.Validate(c, &request); !ok {
 		return
 	}
@@ -35,7 +35,7 @@ func (ctrl *SSLCertController) GetSSLCertList(c *gin.Context) {
 		page = 1
 	}
 
-	data, total, err := service.Entrance.SysService.SSLCertService.GetSSLCertList(page, pageSize)
+	data, total, err := service.Entrance.SSLService.SSLCertService.GetSSLCertList(page, pageSize)
 	if err != nil {
 		response.Abort500(c, "获取SSL证书列表失败")
 		return
@@ -52,13 +52,13 @@ func (ctrl *SSLCertController) GetSSLCertList(c *gin.Context) {
 
 // CreateSSLCert 创建SSL证书
 func (ctrl *SSLCertController) CreateSSLCert(c *gin.Context) {
-	request := requestsSys.SSLCertCreateRequest{}
+	request := requestsSSL.SSLCertCreateRequest{}
 	if ok := validators.Validate(c, &request); !ok {
 		return
 	}
 
 	// 转换请求数据为证书模型
-	cert := sysModel.SSLCert{
+	cert := sslModel.SSLCert{
 		Domain:           request.Domain,
 		CommonName:       request.CommonName,
 		Organization:     request.Organization,
@@ -77,7 +77,7 @@ func (ctrl *SSLCertController) CreateSSLCert(c *gin.Context) {
 	}
 
 	// 调用服务层创建证书
-	err := service.Entrance.SysService.SSLCertService.CreateSSLCert(cert)
+	err := service.Entrance.SSLService.SSLCertService.CreateSSLCert(cert)
 	if err != nil {
 		response.Abort500(c, "创建SSL证书失败")
 		return

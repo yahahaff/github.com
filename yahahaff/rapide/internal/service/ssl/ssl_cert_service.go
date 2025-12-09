@@ -1,5 +1,5 @@
-// Package sys
-package sys
+// Package ssl
+package ssl
 
 import (
 	"crypto"
@@ -15,7 +15,7 @@ import (
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
 	"github.com/go-acme/lego/v4/registration"
-	"github.com/yahahaff/rapide/internal/models/sys"
+	"github.com/yahahaff/rapide/internal/models/ssl"
 	"github.com/yahahaff/rapide/pkg/database"
 )
 
@@ -36,7 +36,7 @@ func (ss *SSLCertService) GetSSLCertList(page int, size int) (data interface{}, 
 	offset := (page - 1) * size
 
 	// 构建查询
-	db := database.DB.Model(&sys.SSLCert{})
+	db := database.DB.Model(&ssl.SSLCert{})
 
 	// 获取总记录数
 	if err := db.Count(&total).Error; err != nil {
@@ -65,7 +65,7 @@ func (ss *SSLCertService) GetSSLCertList(page int, size int) (data interface{}, 
 }
 
 // CreateSSLCert 创建SSL证书
-func (ss *SSLCertService) CreateSSLCert(cert sys.SSLCert) (err error) {
+func (ss *SSLCertService) CreateSSLCert(cert ssl.SSLCert) (err error) {
 	// 1. 创建初始证书记录，状态为 pending
 	cert.ApplyStatus = "pending"
 	if err := database.DB.Create(&cert).Error; err != nil {
@@ -73,12 +73,12 @@ func (ss *SSLCertService) CreateSSLCert(cert sys.SSLCert) (err error) {
 	}
 
 	// 2. 异步处理证书申请
-	go func(certID uint64, cert sys.SSLCert) {
+	go func(certID uint64, cert ssl.SSLCert) {
 		// 更新状态为 applying
 		updateData := map[string]interface{}{
 			"apply_status": "applying",
 		}
-		if err := database.DB.Model(&sys.SSLCert{}).Where("id = ?", certID).Updates(updateData).Error; err != nil {
+		if err := database.DB.Model(&ssl.SSLCert{}).Where("id = ?", certID).Updates(updateData).Error; err != nil {
 			return
 		}
 
@@ -116,7 +116,7 @@ func (ss *SSLCertService) CreateSSLCert(cert sys.SSLCert) (err error) {
 			resultData["apply_status"] = "success"
 		}
 
-		if err := database.DB.Model(&sys.SSLCert{}).Where("id = ?", certID).Updates(resultData).Error; err != nil {
+		if err := database.DB.Model(&ssl.SSLCert{}).Where("id = ?", certID).Updates(resultData).Error; err != nil {
 			return
 		}
 	}(cert.ID, cert)
@@ -125,7 +125,7 @@ func (ss *SSLCertService) CreateSSLCert(cert sys.SSLCert) (err error) {
 }
 
 // applyLetsEncryptCert 申请 Let's Encrypt 证书
-func (ss *SSLCertService) applyLetsEncryptCert(cert sys.SSLCert) (certContent, privateKey, intermediateCert string, validityStart, validityEnd time.Time, fingerprint, serialNumber string, err error) {
+func (ss *SSLCertService) applyLetsEncryptCert(cert ssl.SSLCert) (certContent, privateKey, intermediateCert string, validityStart, validityEnd time.Time, fingerprint, serialNumber string, err error) {
 	// 生成用户私钥
 	privateKeyBytes, err := certcrypto.GeneratePrivateKey(certcrypto.RSA2048)
 	if err != nil {
@@ -228,7 +228,7 @@ func (ss *SSLCertService) applyLetsEncryptCert(cert sys.SSLCert) (certContent, p
 }
 
 // applyGoogleTrustCert 申请 Google Trust Services 证书
-func (ss *SSLCertService) applyGoogleTrustCert(cert sys.SSLCert) (certContent, privateKey, intermediateCert string, validityStart, validityEnd time.Time, fingerprint, serialNumber string, err error) {
+func (ss *SSLCertService) applyGoogleTrustCert(cert ssl.SSLCert) (certContent, privateKey, intermediateCert string, validityStart, validityEnd time.Time, fingerprint, serialNumber string, err error) {
 	// 注意：Google Trust Services 不提供公开的 ACME API
 	// 这里返回模拟数据，实际项目中需要使用 Google Cloud Certificate Manager 或其他方式申请
 	return "", "", "", time.Time{}, time.Time{}, "", "", fmt.Errorf("Google Trust Services 证书申请需要使用 Google Cloud Certificate Manager API")

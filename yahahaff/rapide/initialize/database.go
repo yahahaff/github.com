@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/yahahaff/rapide/internal/models/sys"
+	"github.com/yahahaff/rapide/internal/models/ssl"
 	"github.com/yahahaff/rapide/pkg/app"
 	"github.com/yahahaff/rapide/pkg/config"
 	"github.com/yahahaff/rapide/pkg/database"
@@ -60,7 +61,7 @@ func SetupDB() {
 		err := database.DB.AutoMigrate(&sys.Role{},
 			&sys.OperationLog{}, &sys.Menu{},
 			&sys.UserRole{}, &sys.RoleMenu{},
-			&sys.SSLCert{},
+			&ssl.SSLCert{},
 		)
 
 		if err != nil {

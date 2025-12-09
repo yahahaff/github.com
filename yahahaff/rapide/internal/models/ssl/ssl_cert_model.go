@@ -1,5 +1,5 @@
-// Package sys
-package sys
+// Package ssl
+package ssl
 
 import (
 	"time"

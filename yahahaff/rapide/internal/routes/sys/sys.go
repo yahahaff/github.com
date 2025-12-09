@@ -22,12 +22,11 @@ func RouterGroup(router *gin.Engine) {
 	CaptchaRouter(captcha)
 
 	// sys相关需要jwt认证路由
-	sys := router.Group("/api")
+	sys := router.Group("/api/sys")
 	//JWT认证 接口权限校验
 	sys.Use(middlewares.AuthJWT())
 	MenuRouter(sys)
 	CasbinRouter(sys)
 	UserRouter(sys)
 	OperationLogRouter(sys)
-	SSLCertRouter(sys)
 }

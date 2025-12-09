@@ -1,4 +1,4 @@
-package sys
+package ssl
 
 // SSLCertCreateRequest SSL证书创建请求
 type SSLCertCreateRequest struct {

@@ -8,8 +8,8 @@ import (
 func OperationLogRouter(Router *gin.RouterGroup) {
 
 	{
-		// OperationLog路由组
-		OperationLogGroup := Router.Group("/record")
+		// api-logs 路由
+		OperationLogGroup := Router.Group("/sys/api-logs")
 		olc := new(sys.OperationLogController)
 		OperationLogGroup.GET("getOperationLog", olc.GetOperationLog)
 
