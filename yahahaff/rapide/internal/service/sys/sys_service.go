@@ -7,5 +7,6 @@ type SysGroup struct {
 	MenuService
 	CasbinService
 	OperationLogService
+	DeptService
 	// 其他方法
 }

@@ -61,6 +61,7 @@ func SetupDB() {
 		err := database.DB.AutoMigrate(&sys.Role{},
 			&sys.OperationLog{}, &sys.Menu{},
 			&sys.UserRole{}, &sys.RoleMenu{},
+			&sys.Dept{},
 			&ssl.SSLCert{},
 		)
 

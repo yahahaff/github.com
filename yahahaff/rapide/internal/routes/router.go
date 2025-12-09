@@ -48,5 +48,6 @@ func RegisterAPIRoutes(Router *gin.Engine) {
 		sys.CasbinRouter(sysGroup)          // 权限管理
 		sys.UserRouter(sysGroup)            // 用户管理
 		sys.OperationLogRouter(sysGroup)    // 操作日志
+		sys.DeptRouter(sysGroup)            // 部门管理
 	}
 }
