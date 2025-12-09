@@ -1,3 +1,4 @@
+// Package logger
 package logger
 
 import (
@@ -6,7 +7,6 @@ import (
 	"github.com/yahahaff/rapide/pkg/app"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -15,6 +15,15 @@ import (
 
 // Logger 全局 Logger 对象
 var Logger *zap.Logger
+
+// 模块日志级别配置
+var moduleLogLevels = map[string]zapcore.Level{
+	"database": zapcore.InfoLevel,
+	"http":     zapcore.DebugLevel,
+	"ssl":      zapcore.DebugLevel,
+	"auth":     zapcore.InfoLevel,
+	"sys":      zapcore.InfoLevel,
+}
 
 // InitLogger 日志初始化
 func InitLogger(filename string, maxSize, maxBackup, maxAge int, compress bool, logType, level string) {
@@ -28,6 +37,23 @@ func InitLogger(filename string, maxSize, maxBackup, maxAge int, compress bool, 
 		zap.AddStacktrace(zap.ErrorLevel),
 	)
 	zap.ReplaceGlobals(Logger)
+}
+
+// GetModuleLogger 获取指定模块的 logger 实例
+func GetModuleLogger(moduleName string) *zap.Logger {
+	if level, exists := moduleLogLevels[moduleName]; exists {
+		// 为模块创建特定级别的 logger
+		return Logger.WithOptions(zap.IncreaseLevel(level))
+	}
+	// 默认使用全局 logger
+	return Logger
+}
+
+// SetModuleLogLevel 设置模块日志级别
+func SetModuleLogLevel(moduleName string, level string) error {
+	logLevel := parseLogLevel(level)
+	moduleLogLevels[moduleName] = logLevel
+	return nil
 }
 
 // parseLogLevel 解析日志级别
@@ -60,7 +86,8 @@ func getEncoder() zapcore.Encoder {
 		encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		return zapcore.NewConsoleEncoder(encoderConfig)
 	}
-	return zapcore.NewConsoleEncoder(encoderConfig)
+	// 生产环境使用 JSON 编码器，便于日志聚合和分析
+	return zapcore.NewJSONEncoder(encoderConfig)
 }
 
 // customTimeEncoder 自定义友好的时间格式
@@ -70,12 +97,6 @@ func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 
 // getLogWriter 获取日志写入介质
 func getLogWriter(filename string, maxSize, maxBackup, maxAge int, compress bool, logType string) zapcore.WriteSyncer {
-	// 自动按日期命名日志文件
-	if logType == "daily" {
-		// 将文件名替换为带有日期后缀的格式
-		filename = strings.ReplaceAll(filename, ".log", fmt.Sprintf("-%s.log", time.Now().Format("20060102")))
-	}
-
 	// 使用 lumberjack 进行日志轮转
 	lumberjackLogger := &lumberjack.Logger{
 		Filename:   filename,  // 日志文件名
@@ -90,7 +111,12 @@ func getLogWriter(filename string, maxSize, maxBackup, maxAge int, compress bool
 	if app.IsLocal() {
 		return zapcore.AddSync(os.Stdout)
 	}
-	return zapcore.AddSync(lumberjackLogger)
+	
+	// 生产环境同时输出到控制台和文件，便于调试
+	return zapcore.NewMultiWriteSyncer(
+		zapcore.AddSync(os.Stdout),
+		zapcore.AddSync(lumberjackLogger),
+	)
 }
 
 // Dump 调试专用，不会中断程序，会在终端打印出 warning 消息。

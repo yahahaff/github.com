@@ -73,3 +73,11 @@ func RandomString(length int) string {
 	}
 	return string(b)
 }
+
+// GenerateRequestID 生成唯一请求ID
+func GenerateRequestID() string {
+	// 格式：时间戳(14位) + 随机字符串(8位)
+	timestamp := time.Now().Format("20060102150405")
+	randomStr := RandomString(8)
+	return fmt.Sprintf("%s%s", timestamp, randomStr)
+}
