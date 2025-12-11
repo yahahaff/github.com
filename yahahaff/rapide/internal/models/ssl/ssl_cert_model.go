@@ -19,6 +19,7 @@ type SSLCert struct {
 	City             string    `json:"city" gorm:"type:varchar(255);comment:'城市'"`
 	Email            string    `json:"email" gorm:"type:varchar(255);comment:'邮箱'"`
 	Type             string    `json:"type" gorm:"type:varchar(10);comment:'证书类型: DV/OV/EV'"`
+	Algorithm        string    `json:"algorithm" gorm:"type:varchar(20);default:'RSA-2048';comment:'加密算法'"`
 	ValidityStart    time.Time `json:"validityStart" gorm:"type:datetime;comment:'有效期开始时间'"`
 	ValidityEnd      time.Time `json:"validityEnd" gorm:"type:datetime;comment:'有效期结束时间'"`
 	Status           int       `json:"status" gorm:"default:1;comment:'状态 0:禁用 1:启用'"`

@@ -58,6 +58,7 @@ func (ss *SSLCertService) GetSSLCertList(page int, size int, domain, applyStatus
 		Organization string    `json:"organization"`
 		Email        string    `json:"email"`
 		Type         string    `json:"type"`
+		Algorithm    string    `json:"algorithm"`
 		ValidityEnd  time.Time `json:"validityEnd"`
 		Provider     string    `json:"provider"`
 		ApplyStatus  string    `json:"applyStatus"`
@@ -65,7 +66,7 @@ func (ss *SSLCertService) GetSSLCertList(page int, size int, domain, applyStatus
 
 	// 执行分页查询，只查询指定字段
 	var certList []SSLCertListResponse
-	if err := db.Select("domain, common_name, organization, email, type, validity_end, provider, apply_status").Order("id desc").Limit(size).Offset(offset).Find(&certList).Error; err != nil {
+	if err := db.Select("domain, common_name, organization, email, type, algorithm, validity_end, provider, apply_status").Order("id desc").Limit(size).Offset(offset).Find(&certList).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -134,8 +135,18 @@ func (ss *SSLCertService) CreateSSLCert(cert ssl.SSLCert) (err error) {
 
 // applyLetsEncryptCert 申请 Let's Encrypt 证书
 func (ss *SSLCertService) applyLetsEncryptCert(cert ssl.SSLCert) (certContent, privateKey, intermediateCert string, validityStart, validityEnd time.Time, fingerprint, serialNumber string, err error) {
+	// 根据算法选择密钥类型
+	keyType := certcrypto.RSA2048
+	if cert.Algorithm == "EC-256" {
+		keyType = certcrypto.EC256
+	} else if cert.Algorithm == "EC-384" {
+		keyType = certcrypto.EC384
+	} else if cert.Algorithm == "RSA-4096" {
+		keyType = certcrypto.RSA4096
+	}
+
 	// 生成用户私钥
-	privateKeyBytes, err := certcrypto.GeneratePrivateKey(certcrypto.RSA2048)
+	privateKeyBytes, err := certcrypto.GeneratePrivateKey(keyType)
 	if err != nil {
 		return "", "", "", time.Time{}, time.Time{}, "", "", fmt.Errorf("生成私钥失败: %v", err)
 	}

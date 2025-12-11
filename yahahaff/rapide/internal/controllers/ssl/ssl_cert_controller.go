@@ -61,6 +61,22 @@ func (ctrl *SSLCertController) CreateSSLCert(c *gin.Context) {
 		return
 	}
 
+	// 设置默认值
+	provider := request.Provider
+	if provider == "" {
+		provider = "letsencrypt"
+	}
+
+	challengeType := request.ChallengeType
+	if challengeType == "" {
+		// 根据verifyMethod设置默认的验证方式
+		if request.VerifyMethod == "auto-dns" {
+			challengeType = "dns-01"
+		} else {
+			challengeType = "http-01"
+		}
+	}
+
 	// 转换请求数据为证书模型
 	cert := sslModel.SSLCert{
 		Domain:           request.Domain,
@@ -72,8 +88,9 @@ func (ctrl *SSLCertController) CreateSSLCert(c *gin.Context) {
 		City:             request.City,
 		Email:            request.Email,
 		Type:             "DV", // Let's Encrypt 只提供 DV 证书
-		Provider:         request.Provider,
-		ChallengeType:    request.ChallengeType,
+		Algorithm:        request.Algorithm,
+		Provider:         provider,
+		ChallengeType:    challengeType,
 		ApplyStatus:      "pending",
 		AutoRenew:        request.AutoRenew,
 		RenewStatus:      "idle",
