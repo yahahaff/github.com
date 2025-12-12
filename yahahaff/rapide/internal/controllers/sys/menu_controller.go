@@ -7,6 +7,7 @@ import (
 	sysReq "github.com/yahahaff/rapide/internal/requests/sys"
 	"github.com/yahahaff/rapide/internal/requests/validators"
 	"github.com/yahahaff/rapide/internal/service"
+	"github.com/yahahaff/rapide/internal/utils"
 	"github.com/yahahaff/rapide/pkg/database"
 	"github.com/yahahaff/rapide/pkg/response"
 )
@@ -47,32 +48,22 @@ func (mc *MenuController) GetMenuList(c *gin.Context) {
 		page = 1
 	}
 
-	// 查询菜单数据
-	var menus []*sys.Menu
-	db := database.DB.Where("parent_id IS NULL")
+	// 查询一级菜单总数
+	var total int64
+	database.DB.Model(&sys.Menu{}).Where("parent_id IS NULL").Count(&total)
 
-	// 添加分页限制
-	if pageSize > 0 {
-		db = db.Limit(pageSize)
-	}
-
-	// 查询数据
-	db.Find(&menus)
+	// 一次性查询所有菜单，不分页
+	var allMenus []*sys.Menu
+	database.DB.Find(&allMenus)
 
 	// 构建菜单树
-	for i := range menus {
-		// 查询子菜单
-		var children []*sys.Menu
-		database.DB.Where("parent_id = ?", menus[i].ID).Find(&children)
-		menus[i].Children = children
+	menuTree := utils.BuildMenuTree(allMenus)
 
-		// 查询二级子菜单
-		for j := range children {
-			var grandchildren []*sys.Menu
-			database.DB.Where("parent_id = ?", children[j].ID).Find(&grandchildren)
-			children[j].Children = grandchildren
-		}
+	// 构造返回数据
+	responseData := map[string]interface{}{
+		"result": menuTree,
+		"total":  total,
 	}
 
-	response.OK(c, menus)
+	response.OK(c, responseData)
 }
