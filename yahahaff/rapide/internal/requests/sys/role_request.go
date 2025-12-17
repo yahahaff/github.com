@@ -1,13 +1,12 @@
 package sys
 
-import "encoding/json"
-
 type RoleAddRequest struct {
-	Name       string          `json:"name"  validate:"required"`
-	Value      string          `json:"sort" validate:"required"`
-	Desc       string          `json:"tips"  validate:"required"`
-	Permission json.RawMessage `json:"permission" `
-	Status     int             `json:"status"`
+	Name        string   `json:"name"  validate:"required"`
+	Value       int      `json:"sort"`
+	Desc        string   `json:"tips"`
+	Permissions []string `json:"permissions" `
+	Status      int      `json:"status"`
+	Remark      string   `json:"remark"`
 }
 
 type RoleDeleteRequest struct {

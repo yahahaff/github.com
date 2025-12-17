@@ -1,6 +1,8 @@
 package sys
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/yahahaff/rapide/internal/controllers"
 	sysDao "github.com/yahahaff/rapide/internal/dao/sys"
@@ -57,17 +59,43 @@ func (rc *RoleController) AddRole(c *gin.Context) {
 
 	// 2. 验证成功，创建数据
 	RoleModel := sys.Role{
-
 		RoleName: request.Name,
+		Sort:     request.Value,  // 注意：request.Value 对应 Sort 字段
+		Remark:   request.Remark, // 注意：request.Remark 对应 Remark 字段
+		Status:   request.Status,
+		// RoleValue 和 RoleCode 需要根据业务逻辑生成，这里暂时使用默认值
+		RoleValue: request.Name,
+		RoleCode:  request.Name,
 	}
 
+	// 3. 创建角色
 	RoleModel.Create()
-	//response.Success(c)
-	if RoleModel.ID > 0 {
-		response.OK(c, RoleModel)
-	} else {
-		response.Abort500(c, "创建用户失败，请稍后尝试~")
+	if RoleModel.ID == 0 {
+		response.Abort500(c, "创建角色失败，请稍后尝试~")
+		return
 	}
+
+	// 4. 处理权限关联
+	if len(request.Permissions) > 0 {
+		// 将字符串数组转换为uint64数组
+		menuIDs := make([]uint64, 0, len(request.Permissions))
+		for _, perm := range request.Permissions {
+			var menuID uint64
+			if _, err := fmt.Sscan(perm, &menuID); err == nil {
+				menuIDs = append(menuIDs, menuID)
+			}
+		}
+
+		// 分配菜单权限
+		if len(menuIDs) > 0 {
+			if err := RoleModel.AssignMenus(menuIDs); err != nil {
+				response.Abort500(c, "分配菜单权限失败，请稍后尝试~")
+				return
+			}
+		}
+	}
+
+	response.OK(c, RoleModel)
 }
 
 func (rc *RoleController) DeleteRoleById(c *gin.Context) {

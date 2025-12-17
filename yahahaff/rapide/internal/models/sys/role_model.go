@@ -18,6 +18,9 @@ type Role struct {
 	ParentID *uint64 `json:"parentId" gorm:"comment:'父角色ID'"`
 	Children []*Role `json:"children" gorm:"foreignKey:ParentID"`
 
+	// 菜单关联
+	Menus []*Menu `json:"menus" gorm:"many2many:sys_role_menu;"`
+
 	// 其他信息
 	Sort   int    `json:"sort" gorm:"comment:'排序'"`
 	Status int    `json:"status" gorm:"default:1;comment:'状态 0:禁用 1:启用'"`
