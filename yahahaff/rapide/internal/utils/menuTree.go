@@ -9,15 +9,16 @@ import (
 )
 
 // BuildMenuTree 构建符合 Vben Admin 5.x 要求的菜单树
+// 注意：该函数不做额外过滤，仅构建菜单树结构，过滤逻辑应在调用前完成
 func BuildMenuTree(menus []*sys.Menu) []map[string]interface{} {
 	if len(menus) == 0 {
 		return nil
 	}
 
-	// 1. 去重 + 过滤：启用 & 非按钮
+	// 1. 去重：只过滤nil值，保留所有菜单数据
 	menuMap := make(map[uint64]*sys.Menu)
 	for _, m := range menus {
-		if m == nil || !m.Status || m.Type == 2 {
+		if m == nil {
 			continue
 		}
 		menuMap[m.ID] = m
