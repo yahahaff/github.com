@@ -70,8 +70,10 @@ func BuildMenuTree(menus []*sys.Menu) []map[string]interface{} {
 // convertMenuToVben 递归转换单个菜单项
 func convertMenuToVben(menu *sys.Menu) map[string]interface{} {
 	item := map[string]interface{}{
-		"name": menu.Name,
-		"path": menu.Path,
+		"name":   menu.Name,
+		"path":   menu.Path,
+		"status": menu.Status,
+		"type":   menu.Type,
 	}
 
 	// 处理 redirect（非空才加）
