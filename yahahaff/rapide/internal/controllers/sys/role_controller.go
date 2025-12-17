@@ -100,14 +100,16 @@ func (rc *RoleController) AddRole(c *gin.Context) {
 
 func (rc *RoleController) DeleteRoleById(c *gin.Context) {
 
-	// 1. 验证表单
-	request := sysReq.RoleDeleteRequest{}
-	if ok := validators.Validate(c, &request); !ok {
+	// 1. 从URL路径中获取id参数
+	idStr := c.Param("id")
+	var id int
+	if _, err := fmt.Sscan(idStr, &id); err != nil || id <= 0 {
+		response.Abort500(c, "无效的角色ID")
 		return
 	}
 
-	// 2. 验证成功，删除数据
-	sysDao.RoleDeletelById(request.Id)
+	// 2. 删除数据
+	sysDao.RoleDeletelById(id)
 	response.Success(c)
 
 }
