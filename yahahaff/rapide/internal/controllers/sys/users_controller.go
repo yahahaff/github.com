@@ -69,8 +69,8 @@ func (ctrl *UsersController) GetUserList(c *gin.Context) {
 	}
 
 	result := gin.H{
-		"datalist": data,
-		"pager":    pager,
+		"result": data,
+		"pager":  pager,
 	}
 	response.OK(c, result)
 }
