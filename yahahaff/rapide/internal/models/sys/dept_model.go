@@ -11,7 +11,7 @@ import (
 type Dept struct {
 	models.BaseModel
 	Pid        uint64     `json:"pid" gorm:"comment:'父部门ID';default:0"`
-	ID         string     `json:"id" gorm:"type:varchar(36);primaryKey;comment:'部门ID'"`
+	ID         uint64     `json:"id" gorm:"primaryKey;autoIncrement;comment:'部门ID'"`
 	Name       string     `json:"name" gorm:"type:varchar(255);comment:'部门名称'"`
 	Status     int        `json:"status" gorm:"default:1;comment:'状态 0:禁用 1:启用'"`
 	Remark     string     `json:"remark" gorm:"type:text;comment:'备注'"`
@@ -31,7 +31,7 @@ func (dept *Dept) Create() error {
 }
 
 // GetDeptByID 根据ID获取部门
-func GetDeptByID(id string) (Dept, error) {
+func GetDeptByID(id uint64) (Dept, error) {
 	var dept Dept
 	err := database.DB.Where("id = ?", id).First(&dept).Error
 	return dept, err
@@ -50,6 +50,6 @@ func (dept *Dept) Update() error {
 }
 
 // Delete 删除部门
-func DeleteDept(id string) error {
+func DeleteDept(id uint64) error {
 	return database.DB.Delete(&Dept{}, "id = ?", id).Error
 }
