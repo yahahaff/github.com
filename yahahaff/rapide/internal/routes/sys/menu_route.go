@@ -12,6 +12,8 @@ func MenuRouter(Router *gin.RouterGroup) {
 		mc := new(sys.MenuController)
 		menuGroup.GET("/all", mc.GetUserMenus)
 		menuGroup.GET("/list", mc.GetMenuList)
+		menuGroup.POST("/create", mc.CreateMenu)
+		menuGroup.DELETE("/delete/:id", mc.DeleteMenu)
 
 	}
 }
