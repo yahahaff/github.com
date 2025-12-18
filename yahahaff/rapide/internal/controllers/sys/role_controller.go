@@ -152,11 +152,99 @@ func (rc *RoleController) UpdateRole(c *gin.Context) {
 	// 排序字段：无论值是什么，只要请求中包含就更新
 	role.Sort = request.Sort
 
-	// 5. 保存更新
+	// 5. 更新角色权限
+	if len(request.Permissions) > 0 {
+		// 将字符串数组转换为uint64数组
+		menuIDs := make([]uint64, 0, len(request.Permissions))
+		for _, perm := range request.Permissions {
+			var menuID uint64
+			if _, err := fmt.Sscan(perm, &menuID); err == nil {
+				menuIDs = append(menuIDs, menuID)
+			}
+		}
+
+		// 分配菜单权限
+		if len(menuIDs) > 0 {
+			if err := role.AssignMenus(menuIDs); err != nil {
+				response.Abort500(c, "更新角色权限失败")
+				return
+			}
+		}
+	}
+
+	// 6. 保存更新
 	if err := role.Update(); err != nil {
 		response.Abort500(c, "更新角色失败")
 		return
 	}
 
 	response.OK(c, role)
+}
+
+// GetRolePermissions 获取角色权限
+func (rc *RoleController) GetRolePermissions(c *gin.Context) {
+	// 1. 从URL路径中获取角色ID
+	idStr := c.Param("id")
+	var roleID uint64
+	if _, err := fmt.Sscan(idStr, &roleID); err != nil {
+		response.Abort500(c, "无效的角色ID")
+		return
+	}
+
+	// 2. 查询角色
+	var role sys.Role
+	if err := database.DB.Preload("Menus").First(&role, roleID).Error; err != nil {
+		response.Abort500(c, "角色不存在")
+		return
+	}
+
+	// 3. 提取菜单ID列表
+	permissionIDs := make([]uint64, 0, len(role.Menus))
+	for _, menu := range role.Menus {
+		permissionIDs = append(permissionIDs, menu.ID)
+	}
+
+	// 4. 返回响应
+	response.OK(c, gin.H{
+		"permissions": permissionIDs,
+	})
+}
+
+// UpdateRolePermissions 更新角色权限
+func (rc *RoleController) UpdateRolePermissions(c *gin.Context) {
+	// 1. 从URL路径中获取角色ID
+	idStr := c.Param("id")
+	var roleID uint64
+	if _, err := fmt.Sscan(idStr, &roleID); err != nil {
+		response.Abort500(c, "无效的角色ID")
+		return
+	}
+
+	// 2. 解析请求体
+	type PermissionRequest struct {
+		Permissions []uint64 `json:"permissions"`
+	}
+	var request PermissionRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.Abort500(c, "请求参数解析失败")
+		return
+	}
+
+	// 3. 查询角色
+	var role sys.Role
+	if err := database.DB.First(&role, roleID).Error; err != nil {
+		response.Abort500(c, "角色不存在")
+		return
+	}
+
+	// 4. 更新角色权限
+	if err := role.AssignMenus(request.Permissions); err != nil {
+		response.Abort500(c, "更新角色权限失败")
+		return
+	}
+
+	// 5. 返回响应
+	response.OK(c, gin.H{
+		"permissions": request.Permissions,
+	})
 }

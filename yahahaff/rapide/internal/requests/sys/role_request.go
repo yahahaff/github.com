@@ -19,8 +19,9 @@ type RoleMenuRequest struct {
 }
 
 type RoleUpdateRequest struct {
-	Status int    `json:"status"`
-	Name   string `json:"name"`
-	Remark string `json:"remark"`
-	Sort   int    `json:"sort"`
+	Status      int      `json:"status"`
+	Name        string   `json:"name"`
+	Remark      string   `json:"remark"`
+	Sort        int      `json:"sort"`
+	Permissions []string `json:"permissions"`
 }
