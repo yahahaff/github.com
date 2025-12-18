@@ -9,6 +9,7 @@ import (
 	"github.com/yahahaff/rapide/internal/models/sys"
 	sysReq "github.com/yahahaff/rapide/internal/requests/sys"
 	"github.com/yahahaff/rapide/internal/requests/validators"
+	"github.com/yahahaff/rapide/pkg/database"
 	"github.com/yahahaff/rapide/pkg/response"
 )
 
@@ -112,4 +113,50 @@ func (rc *RoleController) DeleteRoleById(c *gin.Context) {
 	sysDao.RoleDeletelById(id)
 	response.Success(c)
 
+}
+
+// UpdateRole 更新角色信息
+func (rc *RoleController) UpdateRole(c *gin.Context) {
+	// 1. 从URL路径中获取id参数
+	idStr := c.Param("id")
+	var id uint64
+	if _, err := fmt.Sscan(idStr, &id); err != nil || id <= 0 {
+		response.Abort500(c, "无效的角色ID")
+		return
+	}
+
+	// 2. 解析和验证请求体
+	request := sysReq.RoleUpdateRequest{}
+	if ok := validators.Validate(c, &request); !ok {
+		return
+	}
+
+	// 3. 根据ID查询角色
+	var role sys.Role
+	if err := database.DB.First(&role, id).Error; err != nil {
+		response.Abort500(c, "角色不存在")
+		return
+	}
+
+	// 4. 更新角色字段
+	// 状态字段：无论值是什么，只要请求中包含就更新
+	role.Status = request.Status
+	if request.Name != "" {
+		role.RoleName = request.Name
+		role.RoleValue = request.Name
+		role.RoleCode = request.Name
+	}
+	if request.Remark != "" {
+		role.Remark = request.Remark
+	}
+	// 排序字段：无论值是什么，只要请求中包含就更新
+	role.Sort = request.Sort
+
+	// 5. 保存更新
+	if err := role.Update(); err != nil {
+		response.Abort500(c, "更新角色失败")
+		return
+	}
+
+	response.OK(c, role)
 }

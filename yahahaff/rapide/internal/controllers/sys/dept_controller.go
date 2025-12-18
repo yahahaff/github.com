@@ -61,24 +61,37 @@ func (dc *DeptController) CreateDept(c *gin.Context) {
 // UpdateDept 更新部门
 func (dc *DeptController) UpdateDept(c *gin.Context) {
 	var request sysReq.DeptUpdateRequest
+
+	// 1. 检查URL路径中是否有id参数，如果有则设置为请求体的id
+	if idStr := c.Param("id"); idStr != "" {
+		request.ID = idStr
+	}
+
+	// 2. 解析和验证请求体
 	if ok := validators.Validate(c, &request); !ok {
 		return
 	}
 
-	// 获取要更新的部门
+	// 3. 获取要更新的部门
 	dept, err := service.Entrance.SysService.DeptService.GetDeptByID(request.ID)
 	if err != nil {
 		response.Abort500(c, "部门不存在")
 		return
 	}
 
-	// 更新部门信息
-	dept.Pid = 0 // 可根据实际情况调整
-	dept.Name = request.Name
+	// 4. 只更新请求中包含的字段
+	// 更新部门名称
+	if request.Name != "" {
+		dept.Name = request.Name
+	}
+	// 更新部门状态
 	dept.Status = request.Status
-	dept.Remark = request.Remark
+	// 更新部门备注
+	if request.Remark != "" {
+		dept.Remark = request.Remark
+	}
 
-	// 调用服务更新部门
+	// 5. 调用服务更新部门
 	err = service.Entrance.SysService.DeptService.UpdateDept(dept)
 	if err != nil {
 		response.Abort500(c, "更新部门失败")

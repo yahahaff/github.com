@@ -19,6 +19,8 @@ func DeptRouter(Router *gin.RouterGroup) {
 		deptGroup.POST("/create", deptController.CreateDept)
 		// 更新部门
 		deptGroup.PUT("/update", deptController.UpdateDept)
+		// 支持从URL路径获取id的更新部门接口
+		deptGroup.PUT("/update/:id", deptController.UpdateDept)
 		// 删除部门
 		deptGroup.DELETE("/delete/:id", deptController.DeleteDept)
 		// 获取单个部门

@@ -40,8 +40,8 @@ func (roleModel *Role) Create() {
 }
 
 // Update 更新角色
-func (roleModel *Role) Update() {
-	database.DB.Save(&roleModel)
+func (roleModel *Role) Update() error {
+	return database.DB.Save(&roleModel).Error
 }
 
 // Delete 删除角色

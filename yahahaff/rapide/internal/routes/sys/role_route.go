@@ -16,4 +16,6 @@ func RoleRouter(Router *gin.RouterGroup) {
 	roleGroup.DELETE("deleteRole", roc.DeleteRoleById)
 	// 添加根据ID删除角色的路由
 	roleGroup.DELETE("delete/:id", roc.DeleteRoleById)
+	// 添加更新角色路由
+	roleGroup.PUT("update/:id", roc.UpdateRole)
 }
