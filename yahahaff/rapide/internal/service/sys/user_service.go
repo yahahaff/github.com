@@ -111,3 +111,21 @@ func (us *UserService) ResetByEmail(Email, Password string) (err error) {
 	}
 	return
 }
+
+// DeleteUser 删除用户
+func (us *UserService) DeleteUser(userID uint64) (err error) {
+	var user sys.User
+	result := database.DB.First(&user, userID)
+	if result.Error != nil {
+		return result.Error
+	}
+	// 删除用户
+	if err := database.DB.Delete(&user).Error; err != nil {
+		return err
+	}
+	// 删除用户角色关联
+	if err := database.DB.Where("user_id = ?", userID).Delete(&sys.UserRole{}).Error; err != nil {
+		return err
+	}
+	return nil
+}

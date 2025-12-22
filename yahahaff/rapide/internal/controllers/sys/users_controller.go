@@ -74,3 +74,26 @@ func (ctrl *UsersController) GetUserList(c *gin.Context) {
 	}
 	response.OK(c, result)
 }
+
+// DeleteUser 删除用户
+func (ctrl *UsersController) DeleteUser(c *gin.Context) {
+	// 从URL获取用户ID
+	userID := c.Param("id")
+	// 转换为uint64
+	var id uint64
+	_, err := fmt.Sscanf(userID, "%d", &id)
+	if err != nil {
+		response.Abort400(c, "无效的用户ID")
+		return
+	}
+
+	// 调用服务层删除用户
+	err = service.Entrance.SysService.UserService.DeleteUser(id)
+	if err != nil {
+		logger.ErrorString("user", "error", fmt.Sprintf(err.Error()))
+		response.Abort500(c, "删除用户失败")
+		return
+	}
+
+	response.OK(c, gin.H{"message": "用户删除成功"})
+}
