@@ -14,8 +14,8 @@ type User struct {
 	RealName string `json:"realName" gorm:"type:varchar(255);comment:'真实姓名'"`
 	Password string `json:"-" gorm:"type:varchar(255);not null;comment:'密码'"`
 	Salt     string `json:"-" gorm:"type:varchar(255);comment:'密码盐'"`
-	Email    string `json:"email" gorm:"type:varchar(255);uniqueIndex;default:null;comment:'邮箱'"`
-	Phone    string `json:"phone" gorm:"type:varchar(20);uniqueIndex;default:null;comment:'手机号'"`
+	Email    *string `json:"email" gorm:"type:varchar(255);uniqueIndex;default:null;comment:'邮箱'"`
+	Phone    *string `json:"phone" gorm:"type:varchar(20);uniqueIndex;default:null;comment:'手机号'"`
 	Avatar   string `json:"avatar" gorm:"type:varchar(255);comment:'头像'"`
 
 	// 状态信息

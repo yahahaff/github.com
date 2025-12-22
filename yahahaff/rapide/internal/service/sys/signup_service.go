@@ -44,12 +44,24 @@ func (ss *SignupService) Signup(req *sys.SignupRequest) (userData sysMode.User, 
 	}
 
 	// 5. 创建用户模型
+	// 处理Email字段，转换为指针类型
+	var email *string
+	if req.Email != "" {
+		email = &req.Email
+	}
+
+	// 处理Phone字段，转换为指针类型
+	var phone *string
+	if req.Phone != "" {
+		phone = &req.Phone
+	}
+
 	userModel := sysMode.User{
 		UserName: req.UserName,
 		Password: hash.BcryptHash(req.Password),
 		RealName: req.RealName,
-		Email:    req.Email,
-		Phone:    req.Phone,
+		Email:    email,
+		Phone:    phone,
 		Avatar:   req.Avatar,
 		Status:   1,            // 默认启用状态
 		HomePath: "/dashboard", // 默认首页路径

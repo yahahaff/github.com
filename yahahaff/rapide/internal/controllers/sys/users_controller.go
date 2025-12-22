@@ -97,3 +97,55 @@ func (ctrl *UsersController) DeleteUser(c *gin.Context) {
 
 	response.OK(c, gin.H{"message": "用户删除成功"})
 }
+
+// GetUserByID 获取用户详情
+func (ctrl *UsersController) GetUserByID(c *gin.Context) {
+	// 从URL获取用户ID
+	userID := c.Param("id")
+	// 转换为uint64
+	var id uint64
+	_, err := fmt.Sscanf(userID, "%d", &id)
+	if err != nil {
+		response.Abort400(c, "无效的用户ID")
+		return
+	}
+
+	// 调用服务层获取用户详情
+	user, err := service.Entrance.SysService.UserService.GetUserByID(id)
+	if err != nil {
+		logger.ErrorString("user", "error", fmt.Sprintf("获取用户详情失败: %v", err))
+		response.Abort500(c, "获取用户详情失败")
+		return
+	}
+
+	response.OK(c, user)
+}
+
+// UpdateUser 更新用户信息
+func (ctrl *UsersController) UpdateUser(c *gin.Context) {
+	// 从URL获取用户ID
+	userID := c.Param("id")
+	// 转换为uint64
+	var id uint64
+	_, err := fmt.Sscanf(userID, "%d", &id)
+	if err != nil {
+		response.Abort400(c, "无效的用户ID")
+		return
+	}
+
+	// 验证请求数据
+	request := sys.UserUpdateRequest{}
+	if ok := validators.Validate(c, &request); !ok {
+		return
+	}
+
+	// 调用服务层更新用户信息
+	err = service.Entrance.SysService.UserService.UpdateUser(id, &request)
+	if err != nil {
+		logger.ErrorString("user", "error", fmt.Sprintf("更新用户失败: %v", err))
+		response.Abort500(c, fmt.Sprintf("更新用户失败: %v", err))
+		return
+	}
+
+	response.OK(c, gin.H{"message": "更新用户成功"})
+}

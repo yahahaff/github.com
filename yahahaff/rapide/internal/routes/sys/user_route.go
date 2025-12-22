@@ -21,6 +21,10 @@ func UserRouter(Router *gin.RouterGroup) {
 		usersGroup.GET("/list", uc.GetUserList)
 		// 删除用户
 		usersGroup.DELETE("/delete/:id", uc.DeleteUser)
+		// 获取单个用户详情
+		usersGroup.GET("/:id", uc.GetUserByID)
+		// 更新用户信息
+		usersGroup.PUT("/update/:id", uc.UpdateUser)
 	}
 
 }

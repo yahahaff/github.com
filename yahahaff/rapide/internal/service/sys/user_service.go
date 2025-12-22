@@ -5,7 +5,9 @@ import (
 
 	sysDao "github.com/yahahaff/rapide/internal/dao/sys"
 	"github.com/yahahaff/rapide/internal/models/sys"
+	requests "github.com/yahahaff/rapide/internal/requests/sys"
 	"github.com/yahahaff/rapide/pkg/database"
+	"github.com/yahahaff/rapide/pkg/hash"
 	"github.com/yahahaff/rapide/pkg/paginator"
 )
 
@@ -182,5 +184,189 @@ func (us *UserService) DeleteUser(userID uint64) (err error) {
 	if err := database.DB.Where("user_id = ?", userID).Delete(&sys.UserRole{}).Error; err != nil {
 		return err
 	}
+	return nil
+}
+
+// GetUserByID 获取单个用户详情
+func (us *UserService) GetUserByID(userID uint64) (UserListResponse, error) {
+	var user sys.User
+	// 查询用户基本信息，排除Depts关联以避免自动预加载
+	if err := database.DB.Omit("Depts").First(&user, userID).Error; err != nil {
+		return UserListResponse{}, err
+	}
+
+	// 获取用户角色名称
+	roleName, err := us.getUserRoleName(user.ID)
+	if err != nil {
+		return UserListResponse{}, err
+	}
+
+	// 获取用户部门名称
+	deptName, err := us.getUserDeptName(user.ID)
+	if err != nil {
+		return UserListResponse{}, err
+	}
+
+	// 构建响应结构体
+	responseUser := UserListResponse{
+		User:     user,
+		RoleName: roleName,
+		DeptName: deptName,
+	}
+
+	return responseUser, nil
+}
+
+// UpdateUser 更新用户信息
+func (us *UserService) UpdateUser(userID uint64, req *requests.UserUpdateRequest) error {
+	// 开始事务
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 查询用户是否存在
+	var user sys.User
+	if err := tx.First(&user, userID).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 检查用户名是否已存在（如果提供了用户名，且排除当前用户）
+	if req.UserName != "" {
+		var count int64
+		if err := tx.Model(&sys.User{}).Where("user_name = ? AND id != ?", req.UserName, userID).Count(&count).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+		if count > 0 {
+			tx.Rollback()
+			return fmt.Errorf("用户名已存在")
+		}
+		// 更新用户名
+		user.UserName = req.UserName
+	}
+
+	// 检查邮箱是否已存在（如果提供了邮箱，且排除当前用户）
+	if req.Email != "" {
+		var count int64
+		if err := tx.Model(&sys.User{}).Where("email = ? AND id != ?", req.Email, userID).Count(&count).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+		if count > 0 {
+			tx.Rollback()
+			return fmt.Errorf("邮箱已被注册")
+		}
+		// 更新邮箱
+		user.Email = &req.Email
+	} else if req.Email == "" {
+		// 如果提供了空邮箱，将其设置为 nil
+		user.Email = nil
+	}
+
+	// 检查手机号是否已存在（如果提供了手机号，且排除当前用户）
+	if req.Phone != "" {
+		var count int64
+		if err := tx.Model(&sys.User{}).Where("phone = ? AND id != ?", req.Phone, userID).Count(&count).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+		if count > 0 {
+			tx.Rollback()
+			return fmt.Errorf("手机号已被注册")
+		}
+		// 更新手机号
+		user.Phone = &req.Phone
+	} else if req.Phone == "" {
+		// 如果提供了空手机号，将其设置为 nil
+		user.Phone = nil
+	}
+
+	// 更新真实姓名（如果提供了）
+	if req.RealName != "" {
+		user.RealName = req.RealName
+	}
+
+	// 更新昵称（如果提供了），映射到 RealName 字段
+	if req.NickName != "" {
+		user.RealName = req.NickName
+	}
+
+	// 更新状态（如果提供了）
+	if req.Status != nil {
+		user.Status = *req.Status
+	}
+
+	// 更新备注（如果提供了）
+	if req.Remark != "" {
+		user.Remark = req.Remark
+	}
+
+	// 如果提供了新密码，更新密码
+	if req.Password != "" {
+		if req.Password != req.PasswordConfirm {
+			tx.Rollback()
+			return fmt.Errorf("两次输入的密码不一致")
+		}
+		user.Password = hash.BcryptHash(req.Password)
+	}
+
+	// 更新用户信息
+	if err := tx.Save(&user).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 更新用户角色关联（如果提供了角色ID）
+	if req.RoleID != nil {
+		// 删除现有的用户角色关联
+		if err := tx.Where("user_id = ?", userID).Delete(&sys.UserRole{}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// 创建新的用户角色关联
+		userRole := sys.UserRole{
+			UserID: userID,
+			RoleID: *req.RoleID,
+		}
+		if err := tx.Create(&userRole).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// 更新用户部门关联（如果提供了部门ID）
+	if req.DeptId != nil {
+		// 删除现有的用户部门关联
+		if err := tx.Where("user_id = ?", userID).Delete(&sys.UserDept{}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// 创建新的用户部门关联
+		userDept := sys.UserDept{
+			UserID: userID,
+			DeptID: *req.DeptId,
+		}
+		if err := tx.Create(&userDept).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	return nil
 }
