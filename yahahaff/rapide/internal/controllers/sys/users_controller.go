@@ -63,7 +63,7 @@ func (ctrl *UsersController) GetUserList(c *gin.Context) {
 	data, pager, err := service.Entrance.SysService.UserService.GetUserList(page, pageSize, request.Sort, request.Order)
 	// 如果错误存在，记录错误日志，并抛出异常
 	if err != nil {
-		logger.ErrorString("user", "error", fmt.Sprintf(err.Error()))
+		logger.ErrorString("user", "GetUserList_error", fmt.Sprintf("获取用户列表失败: %v", err))
 		response.Abort500(c, "获取用户列表失败")
 		return
 	}
