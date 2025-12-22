@@ -9,6 +9,13 @@ import (
 	"github.com/yahahaff/rapide/pkg/paginator"
 )
 
+// UserListResponse 用户列表响应结构体，包含角色和部门信息
+type UserListResponse struct {
+	sys.User
+	RoleName string `json:"roleName"`
+	DeptName string `json:"deptName"`
+}
+
 type UserService struct{}
 
 var users []sys.User
@@ -82,10 +89,34 @@ func (us *UserService) GetUserList(page int, size int, sort, order string) (data
 	// 计算偏移量
 	offset := (page - 1) * size
 
-	// 执行分页查询
+	// 执行分页查询，排除Depts关联以避免自动预加载
 	var users []sys.User
-	if err := db.Limit(size).Offset(offset).Find(&users).Error; err != nil {
+	if err := db.Limit(size).Offset(offset).Omit("Depts").Find(&users).Error; err != nil {
 		return nil, paginator.Paging{}, err
+	}
+
+	// 构建响应数据，包含角色和部门名称
+	var responseUsers []UserListResponse
+	for _, user := range users {
+		// 获取用户角色名称
+		roleName, err := us.getUserRoleName(user.ID)
+		if err != nil {
+			return nil, paginator.Paging{}, err
+		}
+
+		// 获取用户部门名称
+		deptName, err := us.getUserDeptName(user.ID)
+		if err != nil {
+			return nil, paginator.Paging{}, err
+		}
+
+		// 构建响应结构体
+		responseUser := UserListResponse{
+			User:     user,
+			RoleName: roleName,
+			DeptName: deptName,
+		}
+		responseUsers = append(responseUsers, responseUser)
 	}
 
 	// 设置分页信息
@@ -96,7 +127,31 @@ func (us *UserService) GetUserList(page int, size int, sort, order string) (data
 		TotalPage:   totalPages,
 	}
 
-	return users, pager, nil
+	return responseUsers, pager, nil
+}
+
+// getUserRoleName 获取用户的角色名称（单个）
+func (us *UserService) getUserRoleName(userID uint64) (string, error) {
+	var roleName string
+	err := database.DB.Table("sys_role").
+		Joins("JOIN sys_user_role ON sys_role.id = sys_user_role.role_id").
+		Where("sys_user_role.user_id = ?", userID).
+		Order("sys_role.id ASC").
+		Limit(1).
+		Pluck("sys_role.role_name", &roleName).Error
+	return roleName, err
+}
+
+// getUserDeptName 获取用户的部门名称（单个）
+func (us *UserService) getUserDeptName(userID uint64) (string, error) {
+	var deptName string
+	err := database.DB.Table("sys_dept").
+		Joins("JOIN sys_user_dept ON sys_dept.id = sys_user_dept.dept_id").
+		Where("sys_user_dept.user_id = ?", userID).
+		Order("sys_dept.id ASC").
+		Limit(1).
+		Pluck("sys_dept.name", &deptName).Error
+	return deptName, err
 }
 
 // ResetByEmail 重置密码

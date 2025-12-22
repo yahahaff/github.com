@@ -1,6 +1,8 @@
 package sys
 
 import (
+	"fmt"
+
 	sysMode "github.com/yahahaff/rapide/internal/models/sys"
 	"github.com/yahahaff/rapide/internal/requests/sys"
 
@@ -29,7 +31,19 @@ func (ss *SignupService) Signup(req *sys.SignupRequest) (userData sysMode.User, 
 		return sysMode.User{}, "手机号已被注册"
 	}
 
-	// 4. 创建用户模型
+	// 4. 检查部门是否存在（如果提供了部门ID）
+	if req.DeptId > 0 {
+		var deptCount int64
+		if err := database.DB.Model(&sysMode.Dept{}).Where("id = ?", req.DeptId).Count(&deptCount).Error; err != nil {
+			logger.ErrorString("signup", "check_dept_error", err.Error())
+			return sysMode.User{}, "检查部门信息失败"
+		}
+		if deptCount == 0 {
+			return sysMode.User{}, "指定的部门不存在"
+		}
+	}
+
+	// 5. 创建用户模型
 	userModel := sysMode.User{
 		UserName: req.UserName,
 		Password: hash.BcryptHash(req.Password),
@@ -41,7 +55,7 @@ func (ss *SignupService) Signup(req *sys.SignupRequest) (userData sysMode.User, 
 		HomePath: "/dashboard", // 默认首页路径
 	}
 
-	// 5. 开始事务
+	// 6. 开始事务
 	tx := database.DB.Begin()
 	if tx.Error != nil {
 		logger.ErrorString("signup", "begin_transaction_error", tx.Error.Error())
@@ -56,7 +70,7 @@ func (ss *SignupService) Signup(req *sys.SignupRequest) (userData sysMode.User, 
 		}
 	}()
 
-	// 6. 创建用户
+	// 7. 创建用户
 	if err := tx.Create(&userModel).Error; err != nil {
 		tx.Rollback()
 		logger.ErrorString("signup", "create_user_error", err.Error())
@@ -64,33 +78,29 @@ func (ss *SignupService) Signup(req *sys.SignupRequest) (userData sysMode.User, 
 		return sysMode.User{}, errMsg
 	}
 
-	// 7. 处理用户角色关联
-	if len(req.RoleIDs) > 0 {
-		// 检查所有角色是否存在
+	// 8. 处理用户角色关联
+	if req.RoleID > 0 {
+		// 检查角色是否存在
 		var roleCount int64
-		if err := tx.Model(&sysMode.Role{}).Where("id IN ?", req.RoleIDs).Count(&roleCount).Error; err != nil {
+		if err := tx.Model(&sysMode.Role{}).Where("id = ?", req.RoleID).Count(&roleCount).Error; err != nil {
 			tx.Rollback()
-			logger.ErrorString("signup", "check_roles_error", err.Error())
+			logger.ErrorString("signup", "check_role_error", err.Error())
 			return sysMode.User{}, "检查角色信息失败"
 		}
 
-		if int(roleCount) != len(req.RoleIDs) {
+		if roleCount == 0 {
 			tx.Rollback()
-			return sysMode.User{}, "部分角色不存在"
+			return sysMode.User{}, "指定的角色不存在"
 		}
 
 		// 创建用户-角色关联
-		userRoles := make([]sysMode.UserRole, 0, len(req.RoleIDs))
-		for _, roleID := range req.RoleIDs {
-			userRoles = append(userRoles, sysMode.UserRole{
-				UserID: userModel.ID,
-				RoleID: roleID,
-			})
+		userRole := sysMode.UserRole{
+			UserID: userModel.ID,
+			RoleID: req.RoleID,
 		}
-
-		if err := tx.Create(&userRoles).Error; err != nil {
+		if err := tx.Create(&userRole).Error; err != nil {
 			tx.Rollback()
-			logger.ErrorString("signup", "create_user_roles_error", err.Error())
+			logger.ErrorString("signup", "create_user_role_error", err.Error())
 			errMsg = handleerror.GormError(err)
 			return sysMode.User{}, errMsg
 		}
@@ -116,14 +126,28 @@ func (ss *SignupService) Signup(req *sys.SignupRequest) (userData sysMode.User, 
 		}
 	}
 
-	// 8. 提交事务
+	// 9. 处理用户部门关联
+	if req.DeptId > 0 {
+		// 创建用户-部门关联
+		userDept := sysMode.UserDept{
+			UserID: userModel.ID,
+			DeptID: req.DeptId,
+		}
+		if err := tx.Create(&userDept).Error; err != nil {
+			tx.Rollback()
+			logger.ErrorString("signup", "create_user_dept_error", fmt.Sprintf("创建用户部门关联失败: %v", err))
+			return sysMode.User{}, "关联部门失败"
+		}
+	}
+
+	// 10. 提交事务
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
 		logger.ErrorString("signup", "commit_transaction_error", err.Error())
 		return sysMode.User{}, "提交事务失败"
 	}
 
-	// 9. 返回用户数据（不包含密码）
+	// 11. 返回用户数据（不包含密码）
 	userModel.Password = ""
 	return userModel, ""
 }
@@ -149,7 +173,7 @@ func (ss *SignupService) SignupWithDefaultRole(userName, password, realName stri
 		UserName: userName,
 		Password: password,
 		RealName: realName,
-		RoleIDs:  []uint64{}, // 空数组，会自动分配默认角色
+		RoleID:   0, // 0表示使用默认角色
 	}
 	return ss.Signup(req)
 }

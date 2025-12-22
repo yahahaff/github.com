@@ -34,6 +34,9 @@ type User struct {
 	LastLoginTime string `json:"lastLoginTime" gorm:"type:varchar(50);comment:'最后登录时间'"`
 
 	models.CommonTimestampsField
+
+	// 关联关系
+	Depts []Dept `json:"depts" gorm:"many2many:sys_user_dept;"`
 }
 
 // TableName Set the table name
@@ -49,6 +52,16 @@ type UserRole struct {
 
 func (UserRole) TableName() string {
 	return "sys_user_role"
+}
+
+// UserDept 用户部门中间表模型
+type UserDept struct {
+	UserID uint64 `gorm:"primaryKey;autoIncrement:false"`
+	DeptID uint64 `gorm:"primaryKey;autoIncrement:false"`
+}
+
+func (UserDept) TableName() string {
+	return "sys_user_dept"
 }
 
 // Create 创建用户
