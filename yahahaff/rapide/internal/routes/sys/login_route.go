@@ -12,8 +12,8 @@ func LoginRouter(Router *gin.RouterGroup) {
 	{
 		loginGroup := Router.Group("")
 		lgc := new(sys.LoginController)
-		// 使用用户名密码登录
-		loginGroup.POST("/login", middlewares.LoginFailureCheck(), lgc.LoginByPassword)
+		// 使用用户名密码登录 或 手机验证码登录（合并的登录接口）
+		loginGroup.POST("/login", middlewares.LoginFailureCheck(), lgc.Login)
 
 	}
 
