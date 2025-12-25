@@ -22,6 +22,10 @@ func (as *AuthService) Attempt(username, password string) (sys.User, error) {
 	if !userModel.ComparePassword(password) {
 		return sys.User{}, errors.New("密码错误")
 	}
+	// 检查用户状态，0:禁用 1:启用
+	if userModel.Status == 0 {
+		return sys.User{}, errors.New("账号已被封禁")
+	}
 
 	return userModel, nil
 }
@@ -40,8 +44,12 @@ func (as *AuthService) LoginByPhone(phone string) (sys.User, error) {
 	if userModel.ID == 0 {
 		return sys.User{}, errors.New("手机号未注册")
 	}
+	// 检查用户状态，0:禁用 1:启用
+	if userModel.Status == 0 {
+		return sys.User{}, errors.New("账号已被封禁")
+	}
 
-	return sys.User{}, nil
+	return userModel, nil
 }
 
 // CurrentUser 从 gin.context 中获取当前登录用户

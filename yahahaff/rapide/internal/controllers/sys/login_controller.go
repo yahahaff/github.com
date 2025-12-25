@@ -30,7 +30,7 @@ func (lc *LoginController) Login(c *gin.Context) {
 		user, err := service.Entrance.SysService.AuthService.LoginByPhone(request.Phone)
 		if err != nil {
 			// 失败，显示错误提示
-			response.Abort400(c, "账号不存在")
+			response.Abort400(c, err.Error())
 			return
 		}
 
@@ -61,7 +61,7 @@ func (lc *LoginController) Login(c *gin.Context) {
 		if err != nil {
 			// 失败，显示错误提示
 			middlewares.LoginFailureAdd(request.Username)
-			response.Abort401(c, "Invalid username or password")
+			response.Abort401(c, err.Error())
 			return
 		}
 
@@ -98,7 +98,7 @@ func (lc *LoginController) LoginByPhone(c *gin.Context) {
 	user, err := service.Entrance.SysService.AuthService.LoginByPhone(request.Phone)
 	if err != nil {
 		// 失败，显示错误提示
-		response.Abort400(c, "账号不存在")
+		response.Abort400(c, err.Error())
 		return
 
 	} else {
@@ -136,7 +136,7 @@ func (lc *LoginController) LoginByPassword(c *gin.Context) {
 	if err != nil {
 		// 失败，显示错误提示
 		middlewares.LoginFailureAdd(request.Username)
-		response.Abort401(c, "Invalid username or password")
+		response.Abort401(c, err.Error())
 		return
 	}
 
