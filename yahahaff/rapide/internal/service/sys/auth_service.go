@@ -19,12 +19,12 @@ func (as *AuthService) Attempt(username, password string) (sys.User, error) {
 	if userModel.ID == 0 {
 		return sys.User{}, errors.New("账号不存在")
 	}
-	if !userModel.ComparePassword(password) {
-		return sys.User{}, errors.New("密码错误")
-	}
 	// 检查用户状态，0:禁用 1:启用
 	if userModel.Status == 0 {
 		return sys.User{}, errors.New("账号已被封禁")
+	}
+	if !userModel.ComparePassword(password) {
+		return sys.User{}, errors.New("密码错误")
 	}
 
 	return userModel, nil
