@@ -158,12 +158,13 @@ func (ss *SSLCertService) applyLetsEncryptCert(cert ssl.SSLCert) (certContent, p
 	config := lego.NewConfig(myUser)
 
 	// 设置 CA 服务器 URL，使用 Let's Encrypt 生产环境或 staging 环境
-	// 生产环境: "https://acme-v02.api.letsencrypt.org/directory"
-	// Staging 环境: "https://acme-staging-v02.api.letsencrypt.org/directory"
-	config.CADirURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
+	// 生产环境:
+	config.CADirURL = "https://acme-v02.api.letsencrypt.org/directory"
+	// Staging 环境:
+	// config.CADirURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
 
-	// 设置证书类型
-	config.Certificate.KeyType = certcrypto.RSA2048
+	// 设置证书算法
+	config.Certificate.KeyType = keyType
 
 	// 创建 HTTP 客户端
 	client, err := lego.NewClient(config)
@@ -173,20 +174,33 @@ func (ss *SSLCertService) applyLetsEncryptCert(cert ssl.SSLCert) (certContent, p
 
 	// 根据验证类型配置对应的挑战
 	if cert.ChallengeType == "dns-01" {
-		// 配置 Cloudflare DNS-01 挑战
-		// 注意：需要在环境变量或配置文件中设置 CLOUDFLARE_API_TOKEN
-		// 示例：CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
+		// 配置 Cloudflare DNS-01 挑战，从系统环境变量中读取凭证
+		// cloudflare.NewDNSProvider()函数会**自动从环境变量中读取Cloudflare的API凭证**
+		// 它内部会按照以下顺序检查环境变量：
+		// 1. CLOUDFLARE_EMAIL 和 CLOUDFLARE_API_KEY (传统 API 密钥)
+		// 2. CLOUDFLARE_DNS_API_TOKEN 和 CLOUDFLARE_ZONE_API_TOKEN (DNS 和区域 API 令牌)
+		// 3. CLOUDFLARE_API_TOKEN (全局 API 令牌)
+
 		cfProvider, err := cloudflare.NewDNSProvider()
 		if err != nil {
-			return "", "", "", time.Time{}, time.Time{}, "", "", fmt.Errorf("配置 Cloudflare DNS 提供商失败: %v", err)
+			// 详细的错误信息，帮助用户调试
+			errMsg := fmt.Sprintf("配置 Cloudflare DNS 提供商失败: %v\n", err)
+			errMsg += "请确保已正确设置 Cloudflare API 凭证环境变量，支持以下方式：\n"
+			errMsg += "1. 设置 CLOUDFLARE_EMAIL 和 CLOUDFLARE_API_KEY (传统 API 密钥)\n"
+			errMsg += "2. 设置 CLOUDFLARE_DNS_API_TOKEN 和 CLOUDFLARE_ZONE_API_TOKEN (DNS 和区域 API 令牌)\n"
+			errMsg += "3. 设置 CLOUDFLARE_API_TOKEN (全局 API 令牌)\n"
+			errMsg += "注意：API 令牌需要包含 DNS 编辑权限。\n"
+			errMsg += "注意：在Windows系统中，环境变量的设置需要重启终端才能生效。"
+			return "", "", "", time.Time{}, time.Time{}, "", "", fmt.Errorf("%s", errMsg)
 		}
 		if err := client.Challenge.SetDNS01Provider(cfProvider); err != nil {
 			return "", "", "", time.Time{}, time.Time{}, "", "", fmt.Errorf("配置 DNS-01 挑战失败: %v", err)
 		}
 	} else {
 		// 配置 HTTP-01 挑战
+		// 注意：需要确保服务器的80端口可以被外部访问
 		if err := client.Challenge.SetHTTP01Provider(http01.NewProviderServer("", "80")); err != nil {
-			return "", "", "", time.Time{}, time.Time{}, "", "", fmt.Errorf("配置 HTTP-01 挑战失败: %v", err)
+			return "", "", "", time.Time{}, time.Time{}, "", "", fmt.Errorf("配置 HTTP-01 挑战失败: %v。请确保服务器的80端口可以被外部访问。", err)
 		}
 	}
 
