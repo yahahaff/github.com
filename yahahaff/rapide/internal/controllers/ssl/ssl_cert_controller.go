@@ -3,6 +3,7 @@ package ssl
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yahahaff/rapide/internal/controllers"
@@ -241,6 +242,46 @@ func (ctrl *SSLCertController) GetSSLCertDetail(c *gin.Context) {
 		return
 	}
 
-	// 3. 返回证书详情
-	response.OK(c, cert)
+	// 3. 计算证书剩余天数
+	now := time.Now()
+	expiresInDays := int(cert.ValidityEnd.Sub(now).Hours() / 24)
+	// 确保剩余天数不为负数
+	if expiresInDays < 0 {
+		expiresInDays = 0
+	}
+
+	// 4. 创建返回结果，包含证书信息和剩余天数
+	result := gin.H{
+		"id":               cert.ID,
+		"domain":           cert.Domain,
+		"commonName":       cert.CommonName,
+		"organization":     cert.Organization,
+		"organizationUnit": cert.OrganizationUnit,
+		"country":          cert.Country,
+		"state":            cert.State,
+		"city":             cert.City,
+		"email":            cert.Email,
+		"type":             cert.Type,
+		"algorithm":        cert.Algorithm,
+		"validityStart":    cert.ValidityStart,
+		"validityEnd":      cert.ValidityEnd,
+		"status":           cert.Status,
+		"provider":         cert.Provider,
+		"challengeType":    cert.ChallengeType,
+		"applyStatus":      cert.ApplyStatus,
+		"errorMsg":         cert.ErrorMsg,
+		"certificate":      cert.Certificate,
+		"privateKey":       cert.PrivateKey,
+		"intermediateCert": cert.IntermediateCert,
+		"fingerprint":      cert.Fingerprint,
+		"serialNumber":     cert.SerialNumber,
+		"autoRenew":        cert.AutoRenew,
+		"renewStatus":      cert.RenewStatus,
+		"created_at":       cert.CreatedAt,
+		"updated_at":       cert.UpdatedAt,
+		"expiresInDays":    expiresInDays,
+	}
+
+	// 5. 返回证书详情
+	response.OK(c, result)
 }
