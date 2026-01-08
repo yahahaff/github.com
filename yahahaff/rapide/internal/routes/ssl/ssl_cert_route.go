@@ -13,4 +13,10 @@ func SSLCertRouter(Router *gin.RouterGroup) {
 	Router.GET("/list", sslCertController.GetSSLCertList)
 	// 创建SSL证书
 	Router.POST("/create", sslCertController.CreateSSLCert)
+	// 下载SSL证书
+	Router.GET("/download/:id", sslCertController.DownloadSSLCert)
+	// 吊销SSL证书
+	Router.POST("/revoke/:id", sslCertController.RevokeSSLCert)
+	// 获取单个证书详情
+	Router.GET("/detail/:id", sslCertController.GetSSLCertDetail)
 }

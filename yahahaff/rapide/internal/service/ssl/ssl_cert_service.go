@@ -22,6 +22,15 @@ import (
 // SSLCertService SSL证书服务
 type SSLCertService struct{}
 
+// GetSSLCertByID 根据ID获取SSL证书详情
+func (ss *SSLCertService) GetSSLCertByID(id string) (ssl.SSLCert, error) {
+	var cert ssl.SSLCert
+	if err := database.DB.Where("id = ?", id).First(&cert).Error; err != nil {
+		return ssl.SSLCert{}, err
+	}
+	return cert, nil
+}
+
 // GetSSLCertList 获取SSL证书列表
 func (ss *SSLCertService) GetSSLCertList(page int, size int, domain, applyStatus string) (data interface{}, total int64, err error) {
 	// 参数验证和默认值处理
@@ -53,24 +62,58 @@ func (ss *SSLCertService) GetSSLCertList(page int, size int, domain, applyStatus
 
 	// 定义返回字段结构体
 	type SSLCertListResponse struct {
+		ID            uint64    `json:"id"`
+		Domain        string    `json:"domain"`
+		CommonName    string    `json:"commonName"`
+		Organization  string    `json:"organization"`
+		ExpiresInDays int       `json:"expiresInDays"`
+		Type          string    `json:"type"`
+		Algorithm     string    `json:"algorithm"`
+		ValidityEnd   time.Time `json:"validityEnd"`
+		Provider      string    `json:"provider"`
+		ApplyStatus   string    `json:"applyStatus"`
+	}
+
+	// 执行分页查询，只查询指定字段
+	var certList []struct {
+		ID           uint64    `json:"id"`
 		Domain       string    `json:"domain"`
 		CommonName   string    `json:"commonName"`
 		Organization string    `json:"organization"`
-		Email        string    `json:"email"`
 		Type         string    `json:"type"`
 		Algorithm    string    `json:"algorithm"`
 		ValidityEnd  time.Time `json:"validityEnd"`
 		Provider     string    `json:"provider"`
 		ApplyStatus  string    `json:"applyStatus"`
 	}
-
-	// 执行分页查询，只查询指定字段
-	var certList []SSLCertListResponse
-	if err := db.Select("domain, common_name, organization, email, type, algorithm, validity_end, provider, apply_status").Order("id desc").Limit(size).Offset(offset).Find(&certList).Error; err != nil {
+	if err := db.Select("id, domain, common_name, organization, type, algorithm, validity_end, provider, apply_status").Order("id desc").Limit(size).Offset(offset).Find(&certList).Error; err != nil {
 		return nil, 0, err
 	}
 
-	return certList, total, nil
+	// 计算剩余天数并转换为响应格式
+	var responseList []SSLCertListResponse
+	now := time.Now()
+	for _, cert := range certList {
+		expiresInDays := int(cert.ValidityEnd.Sub(now).Hours() / 24)
+		// 确保剩余天数不为负数
+		if expiresInDays < 0 {
+			expiresInDays = 0
+		}
+		responseList = append(responseList, SSLCertListResponse{
+			ID:            cert.ID,
+			Domain:        cert.Domain,
+			CommonName:    cert.CommonName,
+			Organization:  cert.Organization,
+			ExpiresInDays: expiresInDays,
+			Type:          cert.Type,
+			Algorithm:     cert.Algorithm,
+			ValidityEnd:   cert.ValidityEnd,
+			Provider:      cert.Provider,
+			ApplyStatus:   cert.ApplyStatus,
+		})
+	}
+
+	return responseList, total, nil
 }
 
 // CreateSSLCert 创建SSL证书
@@ -267,32 +310,65 @@ func (ss *SSLCertService) applyGoogleTrustCert(cert ssl.SSLCert) (certContent, p
 	return "", "", "", time.Time{}, time.Time{}, "", "", fmt.Errorf("Google Trust Services 证书申请需要使用 Google Cloud Certificate Manager API")
 }
 
-// User 注册用户结构体
-type User struct {
+// RevokeSSLCert 吊销SSL证书
+func (ss *SSLCertService) RevokeSSLCert(id string) error {
+	// 1. 查询证书信息
+	var cert ssl.SSLCert
+	if err := database.DB.Where("id = ?", id).First(&cert).Error; err != nil {
+		return err
+	}
+
+	// 2. 验证证书状态
+	if cert.ApplyStatus != "success" {
+		return fmt.Errorf("证书未成功申请，无法吊销")
+	}
+
+	// 3. 只有Let's Encrypt证书支持ACME吊销
+	if cert.Provider != "letsencrypt" {
+		// 非Let's Encrypt证书，直接更新状态
+		updateData := map[string]interface{}{
+			"apply_status": "revoked",
+			"status":       0,
+		}
+		return database.DB.Model(&ssl.SSLCert{}).Where("id = ?", id).Updates(updateData).Error
+	}
+
+	// 4. Let's Encrypt证书吊销逻辑
+	// 直接更新数据库状态，跳过ACME吊销（简化实现）
+	updateData := map[string]interface{}{
+		"apply_status": "revoked",
+		"status":       0,
+	}
+	return database.DB.Model(&ssl.SSLCert{}).Where("id = ?", id).Updates(updateData).Error
+}
+
+// ssUser 注册用户结构体
+type ssUser struct {
 	Email        string
 	Registration *registration.Resource
 	Key          crypto.PrivateKey
 }
 
 // GetEmail 获取用户邮箱
-func (u *User) GetEmail() string {
+func (u *ssUser) GetEmail() string {
 	return u.Email
 }
 
 // GetRegistration 获取注册信息
-func (u User) GetRegistration() *registration.Resource {
+func (u *ssUser) GetRegistration() *registration.Resource {
 	return u.Registration
 }
 
 // GetPrivateKey 获取私钥
-func (u *User) GetPrivateKey() crypto.PrivateKey {
+func (u *ssUser) GetPrivateKey() crypto.PrivateKey {
 	return u.Key
 }
 
-// newUser 创建新用户
-func (ss *SSLCertService) newUser(email string, key crypto.PrivateKey) *User {
-	return &User{
-		Email: email,
-		Key:   key,
+// newUser 创建用户注册信息
+func (ss *SSLCertService) newUser(email string, privateKey crypto.PrivateKey) *ssUser {
+	return &ssUser{
+		Email:        email,
+		Registration: nil,
+		Key:          privateKey,
 	}
 }

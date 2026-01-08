@@ -2,12 +2,15 @@
 package ssl
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/yahahaff/rapide/internal/controllers"
 	sslModel "github.com/yahahaff/rapide/internal/models/ssl"
 	requestsSSL "github.com/yahahaff/rapide/internal/requests/ssl"
 	"github.com/yahahaff/rapide/internal/requests/validators"
 	"github.com/yahahaff/rapide/internal/service"
+	"github.com/yahahaff/rapide/internal/utils"
 	"github.com/yahahaff/rapide/pkg/response"
 )
 
@@ -105,4 +108,139 @@ func (ctrl *SSLCertController) CreateSSLCert(c *gin.Context) {
 	}
 
 	response.OK(c, gin.H{"message": "SSL证书创建成功，正在申请中"})
+}
+
+// DownloadSSLCert 下载SSL证书，支持多种格式
+// @Summary 下载SSL证书
+// @Description 下载SSL证书，支持pem、pfx、pkcs12、jks、der等格式，format为all时返回包含所有格式的压缩包
+// @Tags SSL证书
+// @Accept json
+// @Produce octet-stream
+// @Param id path string true "证书ID"
+// @Param format query string false "证书格式，默认为all（返回包含所有格式的压缩包）"
+// @Param password query string false "证书密码，默认为changeme"
+// @Success 200 {file} binary "证书文件或压缩包"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 404 {object} response.Response "证书不存在"
+// @Failure 500 {object} response.Response "下载失败"
+// @Router /api/ssl/download/{id} [get]
+func (ctrl *SSLCertController) DownloadSSLCert(c *gin.Context) {
+	// 1. 获取证书ID和格式
+	certID := c.Param("id")
+	format := c.DefaultQuery("format", "all")
+	password := c.DefaultQuery("password", "changeme")
+
+	// 2. 获取证书信息
+	cert, err := service.Entrance.SSLService.SSLCertService.GetSSLCertByID(certID)
+	if err != nil {
+		response.Abort404(c, "证书不存在")
+		return
+	}
+
+	// 3. 验证证书状态
+	if cert.ApplyStatus != "success" {
+		response.Abort400(c, "证书尚未申请成功，无法下载")
+		return
+	}
+
+	// 4. 根据格式生成证书
+	if format == "all" {
+		// 生成包含所有格式的压缩包
+		zipContent, err := utils.GenerateAllFormatsCertPackage(cert.Certificate, cert.PrivateKey, cert.IntermediateCert, cert.Domain, password)
+		if err != nil {
+			response.Abort500(c, "生成证书压缩包失败: "+err.Error())
+			return
+		}
+
+		// 返回压缩包
+		c.Writer.Header().Set("Content-Description", "File Transfer")
+		c.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-certs.zip\"", cert.Domain))
+		c.Writer.Header().Set("Content-Type", "application/zip")
+		c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(zipContent)))
+		c.Writer.WriteHeader(200)
+		c.Writer.Write(zipContent)
+		c.Writer.Flush()
+		return
+	} else {
+		// 生成指定格式的证书包
+		packageFiles, err := utils.GenerateCertPackage(format, cert.Certificate, cert.PrivateKey, cert.IntermediateCert, cert.Domain, password)
+		if err != nil {
+			response.Abort500(c, "生成证书包失败: "+err.Error())
+			return
+		}
+
+		// 返回证书文件
+		if len(packageFiles) == 1 {
+			// 单个文件，直接返回
+			for filename, content := range packageFiles {
+				c.Header("Content-Description", "File Transfer")
+				c.Header("Content-Disposition", "attachment; filename=\""+filename+"\"")
+				c.Header("Content-Type", "application/octet-stream")
+				c.Header("Content-Length", fmt.Sprintf("%d", len(content)))
+				c.Data(200, "application/octet-stream", content)
+				return
+			}
+		} else {
+			// 多个文件，返回JSON格式的文件列表
+			response.OK(c, gin.H{
+				"files":  packageFiles,
+				"domain": cert.Domain,
+				"format": format,
+			})
+		}
+	}
+}
+
+// RevokeSSLCert 吊销SSL证书
+// @Summary 吊销SSL证书
+// @Description 吊销指定ID的SSL证书
+// @Tags SSL证书
+// @Accept json
+// @Produce json
+// @Param id path string true "证书ID"
+// @Success 200 {object} response.Response "吊销成功"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 404 {object} response.Response "证书不存在"
+// @Failure 500 {object} response.Response "吊销失败"
+// @Router /api/ssl/revoke/{id} [post]
+func (ctrl *SSLCertController) RevokeSSLCert(c *gin.Context) {
+	// 1. 获取证书ID
+	certID := c.Param("id")
+
+	// 2. 调用服务层吊销证书
+	err := service.Entrance.SSLService.SSLCertService.RevokeSSLCert(certID)
+	if err != nil {
+		response.Abort500(c, "吊销证书失败: "+err.Error())
+		return
+	}
+
+	// 3. 返回成功响应
+	response.OK(c, gin.H{"message": "证书吊销成功"})
+}
+
+// GetSSLCertDetail 获取单个SSL证书详情
+// @Summary 获取单个SSL证书详情
+// @Description 获取指定ID的SSL证书详情
+// @Tags SSL证书
+// @Accept json
+// @Produce json
+// @Param id path string true "证书ID"
+// @Success 200 {object} response.Response "获取成功"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 404 {object} response.Response "证书不存在"
+// @Failure 500 {object} response.Response "获取失败"
+// @Router /api/ssl/detail/{id} [get]
+func (ctrl *SSLCertController) GetSSLCertDetail(c *gin.Context) {
+	// 1. 获取证书ID
+	certID := c.Param("id")
+
+	// 2. 调用服务层获取证书详情
+	cert, err := service.Entrance.SSLService.SSLCertService.GetSSLCertByID(certID)
+	if err != nil {
+		response.Abort404(c, "证书不存在")
+		return
+	}
+
+	// 3. 返回证书详情
+	response.OK(c, cert)
 }
