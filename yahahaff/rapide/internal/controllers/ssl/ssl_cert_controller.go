@@ -2,6 +2,8 @@
 package ssl
 
 import (
+	"archive/zip"
+	"bytes"
 	"fmt"
 	"time"
 
@@ -11,7 +13,6 @@ import (
 	requestsSSL "github.com/yahahaff/rapide/internal/requests/ssl"
 	"github.com/yahahaff/rapide/internal/requests/validators"
 	"github.com/yahahaff/rapide/internal/service"
-	"github.com/yahahaff/rapide/internal/utils"
 	"github.com/yahahaff/rapide/pkg/response"
 )
 
@@ -111,25 +112,21 @@ func (ctrl *SSLCertController) CreateSSLCert(c *gin.Context) {
 	response.OK(c, gin.H{"message": "SSL证书创建成功，正在申请中"})
 }
 
-// DownloadSSLCert 下载SSL证书，支持多种格式
+// DownloadSSLCert 下载SSL证书
 // @Summary 下载SSL证书
-// @Description 下载SSL证书，支持pem、pfx、pkcs12、jks、der等格式，format为all时返回包含所有格式的压缩包
+// @Description 下载SSL证书，返回包含key和pem文件的压缩包
 // @Tags SSL证书
 // @Accept json
 // @Produce octet-stream
 // @Param id path string true "证书ID"
-// @Param format query string false "证书格式，默认为all（返回包含所有格式的压缩包）"
-// @Param password query string false "证书密码，默认为changeme"
-// @Success 200 {file} binary "证书文件或压缩包"
+// @Success 200 {file} binary "证书压缩包"
 // @Failure 400 {object} response.Response "请求参数错误"
 // @Failure 404 {object} response.Response "证书不存在"
 // @Failure 500 {object} response.Response "下载失败"
 // @Router /api/ssl/download/{id} [get]
 func (ctrl *SSLCertController) DownloadSSLCert(c *gin.Context) {
-	// 1. 获取证书ID和格式
+	// 1. 获取证书ID
 	certID := c.Param("id")
-	format := c.DefaultQuery("format", "all")
-	password := c.DefaultQuery("password", "changeme")
 
 	// 2. 获取证书信息
 	cert, err := service.Entrance.SSLService.SSLCertService.GetSSLCertByID(certID)
@@ -144,52 +141,56 @@ func (ctrl *SSLCertController) DownloadSSLCert(c *gin.Context) {
 		return
 	}
 
-	// 4. 根据格式生成证书
-	if format == "all" {
-		// 生成包含所有格式的压缩包
-		zipContent, err := utils.GenerateAllFormatsCertPackage(cert.Certificate, cert.PrivateKey, cert.IntermediateCert, cert.Domain, password)
-		if err != nil {
-			response.Abort500(c, "生成证书压缩包失败: "+err.Error())
-			return
-		}
+	// 4. 创建包含key和pem文件的压缩包
+	buf := new(bytes.Buffer)
+	w := zip.NewWriter(buf)
+	defer w.Close()
 
-		// 返回压缩包
-		c.Writer.Header().Set("Content-Description", "File Transfer")
-		c.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-certs.zip\"", cert.Domain))
-		c.Writer.Header().Set("Content-Type", "application/zip")
-		c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(zipContent)))
-		c.Writer.WriteHeader(200)
-		c.Writer.Write(zipContent)
-		c.Writer.Flush()
+	// 添加私钥文件
+	keyFileName := fmt.Sprintf("%s.key", cert.Domain)
+	keyFile, err := w.Create(keyFileName)
+	if err != nil {
+		response.Abort500(c, "生成证书压缩包失败: "+err.Error())
 		return
-	} else {
-		// 生成指定格式的证书包
-		packageFiles, err := utils.GenerateCertPackage(format, cert.Certificate, cert.PrivateKey, cert.IntermediateCert, cert.Domain, password)
-		if err != nil {
-			response.Abort500(c, "生成证书包失败: "+err.Error())
-			return
-		}
-
-		// 返回证书文件
-		if len(packageFiles) == 1 {
-			// 单个文件，直接返回
-			for filename, content := range packageFiles {
-				c.Header("Content-Description", "File Transfer")
-				c.Header("Content-Disposition", "attachment; filename=\""+filename+"\"")
-				c.Header("Content-Type", "application/octet-stream")
-				c.Header("Content-Length", fmt.Sprintf("%d", len(content)))
-				c.Data(200, "application/octet-stream", content)
-				return
-			}
-		} else {
-			// 多个文件，返回JSON格式的文件列表
-			response.OK(c, gin.H{
-				"files":  packageFiles,
-				"domain": cert.Domain,
-				"format": format,
-			})
-		}
 	}
+	if _, err := keyFile.Write([]byte(cert.PrivateKey)); err != nil {
+		response.Abort500(c, "生成证书压缩包失败: "+err.Error())
+		return
+	}
+
+	// 添加证书文件（PEM格式）
+	certFileName := fmt.Sprintf("%s.pem", cert.Domain)
+	certFile, err := w.Create(certFileName)
+	if err != nil {
+		response.Abort500(c, "生成证书压缩包失败: "+err.Error())
+		return
+	}
+	// 证书文件包含主证书和中间证书（如果有）
+	certContent := cert.Certificate
+	if cert.IntermediateCert != "" {
+		certContent += "\n" + cert.IntermediateCert
+	}
+	if _, err := certFile.Write([]byte(certContent)); err != nil {
+		response.Abort500(c, "生成证书压缩包失败: "+err.Error())
+		return
+	}
+
+	// 关闭zip写入器
+	if err := w.Close(); err != nil {
+		response.Abort500(c, "生成证书压缩包失败: "+err.Error())
+		return
+	}
+
+	zipContent := buf.Bytes()
+
+	// 5. 返回压缩包
+	c.Writer.Header().Set("Content-Description", "File Transfer")
+	c.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-certs.zip\"", cert.Domain))
+	c.Writer.Header().Set("Content-Type", "application/zip")
+	c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(zipContent)))
+	c.Writer.WriteHeader(200)
+	c.Writer.Write(zipContent)
+	c.Writer.Flush()
 }
 
 // RevokeSSLCert 吊销SSL证书
