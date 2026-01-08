@@ -141,16 +141,30 @@ func (ctrl *SSLCertController) DownloadSSLCert(c *gin.Context) {
 		return
 	}
 
-	// 4. 创建包含key和pem文件的压缩包
+	// 4. 处理通配符域名，将*替换为wildcard-或使用主域名
+	cleanDomain := cert.Domain
+	// 如果是通配符域名，移除*或替换为wildcard-
+	if len(cleanDomain) > 2 && cleanDomain[:2] == "*." {
+		// 选项1: 替换为wildcard-前缀
+		cleanDomain = "wildcard-" + cleanDomain[2:]
+		// 选项2: 直接使用主域名（如果需要可以取消注释）
+		// cleanDomain = cleanDomain[2:]
+	}
+
+	// 5. 创建包含key和pem文件的压缩包
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 	defer w.Close()
 
-	// 添加私钥文件
-	keyFileName := fmt.Sprintf("%s.key", cert.Domain)
+	// 6. 添加私钥文件
+	keyFileName := fmt.Sprintf("%s.key", cleanDomain)
 	keyFile, err := w.Create(keyFileName)
 	if err != nil {
 		response.Abort500(c, "生成证书压缩包失败: "+err.Error())
+		return
+	}
+	if cert.PrivateKey == "" {
+		response.Abort500(c, "证书私钥为空，无法下载")
 		return
 	}
 	if _, err := keyFile.Write([]byte(cert.PrivateKey)); err != nil {
@@ -158,8 +172,8 @@ func (ctrl *SSLCertController) DownloadSSLCert(c *gin.Context) {
 		return
 	}
 
-	// 添加证书文件（PEM格式）
-	certFileName := fmt.Sprintf("%s.pem", cert.Domain)
+	// 7. 添加证书文件（PEM格式）
+	certFileName := fmt.Sprintf("%s.pem", cleanDomain)
 	certFile, err := w.Create(certFileName)
 	if err != nil {
 		response.Abort500(c, "生成证书压缩包失败: "+err.Error())
@@ -170,12 +184,16 @@ func (ctrl *SSLCertController) DownloadSSLCert(c *gin.Context) {
 	if cert.IntermediateCert != "" {
 		certContent += "\n" + cert.IntermediateCert
 	}
+	if certContent == "" {
+		response.Abort500(c, "证书内容为空，无法下载")
+		return
+	}
 	if _, err := certFile.Write([]byte(certContent)); err != nil {
 		response.Abort500(c, "生成证书压缩包失败: "+err.Error())
 		return
 	}
 
-	// 关闭zip写入器
+	// 8. 关闭zip写入器
 	if err := w.Close(); err != nil {
 		response.Abort500(c, "生成证书压缩包失败: "+err.Error())
 		return
@@ -183,9 +201,11 @@ func (ctrl *SSLCertController) DownloadSSLCert(c *gin.Context) {
 
 	zipContent := buf.Bytes()
 
-	// 5. 返回压缩包
+	// 9. 返回压缩包
 	c.Writer.Header().Set("Content-Description", "File Transfer")
-	c.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-certs.zip\"", cert.Domain))
+	// 使用处理后的域名作为压缩包名称
+	zipFileName := fmt.Sprintf("%s-ssl-cert.zip", cleanDomain)
+	c.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", zipFileName))
 	c.Writer.Header().Set("Content-Type", "application/zip")
 	c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(zipContent)))
 	c.Writer.WriteHeader(200)
