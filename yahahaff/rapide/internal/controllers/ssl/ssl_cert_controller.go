@@ -271,7 +271,7 @@ func (ctrl *SSLCertController) GetSSLCertDetail(c *gin.Context) {
 		expiresInDays = 0
 	}
 
-	// 4. 创建返回结果，包含证书信息和剩余天数
+	// 4. 创建返回结果，包含证书信息和剩余天数（移除敏感字段）
 	result := gin.H{
 		"id":               cert.ID,
 		"domain":           cert.Domain,
@@ -291,9 +291,6 @@ func (ctrl *SSLCertController) GetSSLCertDetail(c *gin.Context) {
 		"challengeType":    cert.ChallengeType,
 		"applyStatus":      cert.ApplyStatus,
 		"errorMsg":         cert.ErrorMsg,
-		"certificate":      cert.Certificate,
-		"privateKey":       cert.PrivateKey,
-		"intermediateCert": cert.IntermediateCert,
 		"fingerprint":      cert.Fingerprint,
 		"serialNumber":     cert.SerialNumber,
 		"autoRenew":        cert.AutoRenew,
