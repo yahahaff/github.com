@@ -5,6 +5,7 @@ import (
 	"github.com/yahahaff/rapide/internal/middlewares"
 	"github.com/yahahaff/rapide/internal/routes/ssl"
 	"github.com/yahahaff/rapide/internal/routes/sys"
+	"github.com/yahahaff/rapide/internal/routes/traefik"
 )
 
 // RegisterAPIRoutes 注册分支路由
@@ -50,5 +51,12 @@ func RegisterAPIRoutes(Router *gin.Engine) {
 		sys.OperationLogRouter(sysGroup)    // 操作日志
 		sys.DeptRouter(sysGroup)            // 部门管理
 		sys.RoleRouter(sysGroup)            // 角色管理
+	}
+
+	// 6. Traefik相关路由 (/api/traefik)
+	traefikGroup := Router.Group("/api")
+	traefikGroup.Use(middlewares.AuthJWT()) // JWT认证
+	{
+		traefik.TraefikRouter(traefikGroup)
 	}
 }
