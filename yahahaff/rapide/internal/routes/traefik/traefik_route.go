@@ -16,5 +16,7 @@ func TraefikRouter(Router *gin.RouterGroup) {
 		traefikGroup.GET("/middlewares", tc.GetMiddlewares)
 		// 获取Traefik服务信息
 		traefikGroup.GET("/services", tc.GetServices)
+		// 获取Traefik概览信息
+		traefikGroup.GET("/overview", tc.GetOverview)
 	}
 }

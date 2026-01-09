@@ -110,6 +110,83 @@ func (ts *TraefikService) GetServices() ([]map[string]interface{}, error) {
 	return services, nil
 }
 
+// GetOverview 获取Traefik概览信息
+func (ts *TraefikService) GetOverview() (map[string]interface{}, error) {
+	// 获取HTTP相关数据
+	httpRouters, err := ts.GetRoutes()
+	if err != nil {
+		return nil, err
+	}
+
+	httpServices, err := ts.GetServices()
+	if err != nil {
+		return nil, err
+	}
+
+	httpMiddlewares, err := ts.GetMiddlewares()
+	if err != nil {
+		return nil, err
+	}
+
+	// 构建概览数据
+	overview := map[string]interface{}{
+		"http": map[string]interface{}{
+			"routers": map[string]interface{}{
+				"total":    len(httpRouters),
+				"warnings": 0,
+				"errors":   0,
+			},
+			"services": map[string]interface{}{
+				"total":    len(httpServices),
+				"warnings": 0,
+				"errors":   0,
+			},
+			"middlewares": map[string]interface{}{
+				"total":    len(httpMiddlewares),
+				"warnings": 0,
+				"errors":   0,
+			},
+		},
+		"tcp": map[string]interface{}{
+			"routers": map[string]interface{}{
+				"total":    0,
+				"warnings": 0,
+				"errors":   0,
+			},
+			"services": map[string]interface{}{
+				"total":    0,
+				"warnings": 0,
+				"errors":   0,
+			},
+			"middlewares": map[string]interface{}{
+				"total":    0,
+				"warnings": 0,
+				"errors":   0,
+			},
+		},
+		"udp": map[string]interface{}{
+			"routers": map[string]interface{}{
+				"total":    0,
+				"warnings": 0,
+				"errors":   0,
+			},
+			"services": map[string]interface{}{
+				"total":    0,
+				"warnings": 0,
+				"errors":   0,
+			},
+		},
+		"features": map[string]interface{}{
+			"tracing":    "",
+			"metrics":    "",
+			"accessLog": false,
+		},
+		"providers": []string{"Docker"},
+	}
+
+	return overview, nil
+}
+
 // httpError 自定义HTTP错误类型
 type httpError struct {
 	statusCode int

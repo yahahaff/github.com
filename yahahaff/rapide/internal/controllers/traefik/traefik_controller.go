@@ -97,3 +97,19 @@ func (tc *TraefikController) GetServices(c *gin.Context) {
 	// 成功，返回服务信息
 	response.OK(c, result)
 }
+
+// GetOverview 获取Traefik概览信息
+func (tc *TraefikController) GetOverview(c *gin.Context) {
+	// 调用服务获取Traefik概览信息
+	overview, err := service.Entrance.TraefikService.TraefikService.GetOverview()
+	if err != nil {
+		// 记录错误日志
+		log.Printf("Failed to get Traefik overview: %v", err)
+		// 失败，显示错误提示
+		response.Abort500(c, err.Error())
+		return
+	}
+
+	// 成功，返回概览信息
+	response.OK(c, overview)
+}
