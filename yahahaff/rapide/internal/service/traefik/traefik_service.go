@@ -12,6 +12,7 @@ type TraefikService struct{}
 // TraefikGroup Traefik服务组
 type TraefikGroup struct {
 	TraefikService
+	TraefikHTTPProviderService
 }
 
 // GetRoutes 获取Traefik路由信息
@@ -185,6 +186,102 @@ func (ts *TraefikService) GetOverview() (map[string]interface{}, error) {
 	}
 
 	return overview, nil
+}
+
+// GetRouteDetail 获取Traefik HTTP路由详情
+func (ts *TraefikService) GetRouteDetail(routeName string) (map[string]interface{}, error) {
+	// Traefik API地址
+	url := "http://172.16.0.60:8080/api/http/routers/" + routeName
+
+	// 发送GET请求
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态码
+	if resp.StatusCode != http.StatusOK {
+		return nil, &httpError{statusCode: resp.StatusCode, message: resp.Status}
+	}
+
+	// 读取响应内容
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// 解析JSON响应
+	var routeDetail map[string]interface{}
+	if err := json.Unmarshal(body, &routeDetail); err != nil {
+		return nil, err
+	}
+
+	return routeDetail, nil
+}
+
+// GetServiceDetail 获取Traefik HTTP服务详情
+func (ts *TraefikService) GetServiceDetail(serviceName string) (map[string]interface{}, error) {
+	// Traefik API地址
+	url := "http://172.16.0.60:8080/api/http/services/" + serviceName
+
+	// 发送GET请求
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态码
+	if resp.StatusCode != http.StatusOK {
+		return nil, &httpError{statusCode: resp.StatusCode, message: resp.Status}
+	}
+
+	// 读取响应内容
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// 解析JSON响应
+	var serviceDetail map[string]interface{}
+	if err := json.Unmarshal(body, &serviceDetail); err != nil {
+		return nil, err
+	}
+
+	return serviceDetail, nil
+}
+
+// GetMiddlewareDetail 获取Traefik HTTP中间件详情
+func (ts *TraefikService) GetMiddlewareDetail(middlewareName string) (map[string]interface{}, error) {
+	// Traefik API地址
+	url := "http://172.16.0.60:8080/api/http/middlewares/" + middlewareName
+
+	// 发送GET请求
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态码
+	if resp.StatusCode != http.StatusOK {
+		return nil, &httpError{statusCode: resp.StatusCode, message: resp.Status}
+	}
+
+	// 读取响应内容
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// 解析JSON响应
+	var middlewareDetail map[string]interface{}
+	if err := json.Unmarshal(body, &middlewareDetail); err != nil {
+		return nil, err
+	}
+
+	return middlewareDetail, nil
 }
 
 // httpError 自定义HTTP错误类型

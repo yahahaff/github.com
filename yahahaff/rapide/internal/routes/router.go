@@ -18,6 +18,9 @@ func RegisterAPIRoutes(Router *gin.Engine) {
 		// 内部路由由sys包提供
 		sys.InternalRouter(internalGroup)
 	}
+	
+	// 2. Traefik HTTP自动发现路由，不需要认证
+	traefik.TraefikHTTPProviderRouter(Router)
 
 	// 2. 验证码路由
 	captchaGroup := Router.Group("/api/captcha")

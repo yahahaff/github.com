@@ -7,6 +7,7 @@ import (
 
 	"github.com/yahahaff/rapide/internal/models/ssl"
 	"github.com/yahahaff/rapide/internal/models/sys"
+	"github.com/yahahaff/rapide/internal/models/traefik"
 	"github.com/yahahaff/rapide/pkg/app"
 	"github.com/yahahaff/rapide/pkg/config"
 	"github.com/yahahaff/rapide/pkg/database"
@@ -62,8 +63,11 @@ func SetupDB() {
 			&sys.OperationLog{}, &sys.Menu{},
 			&sys.UserRole{}, &sys.RoleMenu{},
 			&sys.UserDept{}, &sys.Dept{},
-			&sys.User{},
-			&ssl.SSLCert{},
+			&sys.User{}, &ssl.SSLCert{},
+			&traefik.TraefikRouter{},
+
+			&traefik.TraefikMiddleware{},
+			&traefik.TraefikService{},
 		)
 
 		if err != nil {
